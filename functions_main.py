@@ -3,6 +3,12 @@
 @author: Daniel Capellán-Martín <daniel.capellan@upm.es>
 """
 
+from math import *
+from operator import itemgetter
+import cv2
+import numpy as np
+from skimage.color import label2rgb,rgb2gray,gray2rgb
+
 # Functions
 def findRectangles(contours,img,threshold=0.05):
     '''
@@ -412,7 +418,6 @@ def get_regions_LAT(img_LAT_rotated,rectangles_LAT_90deg,regions_AP):
         'rel_y': (regions_AP['middle_patch']['y']-absolute_y_lungs_AP)/absolute_height_lungs_AP,
         'rel_height': regions_AP['middle_patch']['height']/absolute_height_lungs_AP
     }
-    print(rectangles_LAT_90deg)
     # 2. Middle patch
     regions['middle_patch'] = {
         'x': rectangles_LAT_90deg[0]['x']+int(np.round(rectangles_LAT_90deg[0]['width']*(1/4))),
@@ -450,7 +455,6 @@ def get_regions_LAT_without_AP(img_LAT_rotated,rectangles_LAT_90deg):
         'rel_y': 0.2,  # Manual - no correspondence between AP and LAT views
         'rel_height': 0.5  # Manual - no correspondence between AP and LAT views
     }
-    print(rectangles_LAT_90deg)
     # 2. Middle patch
     regions['middle_patch'] = {
         'x': rectangles_LAT_90deg[0]['x']+int(np.round(rectangles_LAT_90deg[0]['width']*(1/4))),
