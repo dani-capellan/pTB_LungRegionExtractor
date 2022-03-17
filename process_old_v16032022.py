@@ -9,20 +9,18 @@ import argparse
 
 def main():
     parser = argparse.ArgumentParser(description='Process AP and/or LAT CXR pediatric images. img_AP and img_LAT folders should contain analogous images. If only AP or LAT images are introduced (not both), no matching between views will be done.')
-    parser.add_argument("--csv", action='store', required=True, default=None, help="[.csv file] Comma-separated CSV containing information about the images. Possible columns: ['case_id','img_path_AP','img_path_LAT'].")
-    parser.add_argument("--seg_model", action='store', required=True, default=None, choices=['nnunet','medt','gatedaxialunet'], help="Model used for segmenting the lungs. Choose among: ['nnunet','medt','gatedaxialunet'].")
-    parser.add_argument("--output_folder", "-o", action='store', default=None, help="[str] Output folder. Required.")
-    parser.add_argument("--fformat", "-f", action='store', default=None, choices=['jpg','png','nifti'], help="[str] JPG, PNG, NIFTI (.nii.gz) formats allowed. Possible choices: ['jpg','png','nifti'].")
-    parser.add_argument("--apply-clahe", "-clahe", action='store', default=True, required=False, choices=[False,True], help="[bool] Chooses whether to apply clahe or not. True/False.")
+    parser.add_argument("--csv", action='store', required=True, default=None, help="Comma-separated CSV containing information about the images. Possible columns: ['case_id','img_path_AP','img_path_LAT']")
+    parser.add_argument("--seg_model", action='store', required=True, default=None, choices=['nnunet','medt','gatedaxialunet'], help="Model used for segmenting the lungs. Choose among: ['nnunet','medt','gatedaxialunet']")
+    parser.add_argument("--output_folder", "-o", action='store', required=True, default=None, help='Output folder. Required.')
+    parser.add_argument("--fformat", "-f", action='store', required=True, default=None, choices=['jpg','png','nifti'], help="JPG, PNG, NIFTI (.nii.gz) formats allowed: ['jpg','png','nifti']")
     args = parser.parse_args()
 
-    # Output regions in folders corresponding to each of the cases processed, not per image.
+    # Flag to apply clahe?
 
     csv_path = args.csv
     seg_model = args.seg_model
     output_folder = args.output_folder
     file_format_orig = args.fformat
-    apply_clahe = args.apply_clahe
     BASE_DIR = os.getcwd()
 
     # Define paths
@@ -81,15 +79,9 @@ def main():
                 img = img_AP.copy()
             elif(view=='LAT'):
                 img = img_LAT.copy()
-            # CLAHE
-            if(apply_clahe):
-                img_clahe = adapt_2d_and_apply_clahe(img)
-            else:
-                img_clahe = img
+            img_clahe = adapt_2d_and_apply_clahe(img)
             img_clahe_resize = resize(img_clahe,(512,512))
-            if(apply_clahe):
-                # Only needed if CLAHE is applied
-                img_clahe = cv2.normalize(img_clahe,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
+            img_clahe = cv2.normalize(img_clahe,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
             img_clahe_resize = cv2.normalize(img_clahe_resize,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
             maybe_make_dir(os.path.join(paths['preprocessed'],view))
             maybe_make_dir(os.path.join(paths['yolo_in'],view))
@@ -176,10 +168,7 @@ def main():
     if(seg_model=='nnunet'):
         for view in views:
             maybe_make_dir(os.path.join(paths['nnunet_in'],view))
-            if(apply_clahe):
-                adapt_images_nnunet(folder_in=os.path.join(paths['cropped_clahe'],view),folder_out=os.path.join(paths['nnunet_in'],view),file_format=file_format)
-            else:
-                adapt_images_nnunet(folder_in=os.path.join(paths['cropped'],view),folder_out=os.path.join(paths['nnunet_in'],view),file_format=file_format)
+            adapt_images_nnunet(folder_in=os.path.join(paths['cropped_clahe'],view),folder_out=os.path.join(paths['nnunet_in'],view),file_format=file_format)
             INPUT_FOLDER = os.path.join(paths['nnunet_in'],view)
             OUTPUT_FOLDER = os.path.join(paths['nnunet_out'],view)
             if(view=='AP'):
@@ -202,12 +191,8 @@ def main():
             # 4.1. Paths
             img_path_AP = row['img_path_AP']
             img_path_LAT = row['img_path_LAT']
-            if(seg_model=='nnunet'):
-                lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.nii.gz')) if row['case_id'] in f]
-                lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.nii.gz')) if row['case_id'] in f]
-            elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
-                lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.png')) if row['case_id'] in f]
-                lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.png')) if row['case_id'] in f]
+            lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.nii.gz')) if row['case_id'] in f]
+            lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.nii.gz')) if row['case_id'] in f]
             if(lbl_path_AP and len(lbl_path_AP)==1):
                 lbl_path_AP=lbl_path_AP[0]
             else:
@@ -216,36 +201,13 @@ def main():
                 lbl_path_LAT=lbl_path_LAT[0]
             else:
                 raise Exception(f"LAT label for case {row['case_id']} could not be determined. Please check.") 
-            # 4.2. Read data
-            ## 4.2.1. Read images
-            if(file_format_orig in ['jpg','png']):
-                img_AP = imread(img_path_AP)
-                img_LAT = imread(img_path_LAT)
-            elif(file_format_orig in ['nifti']):
-                img_AP = read_nifti(img_path_AP)
-                img_LAT = read_nifti(img_path_LAT)
-            # 4.2.2. Read labels
-            if(seg_model=='nnunet'):
-                lbl_AP = read_nifti(lbl_path_AP)
-                lbl_LAT = read_nifti(lbl_path_LAT)
-            elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
-                lbl_AP = imread(lbl_path_AP)
-                lbl_LAT = imread(lbl_path_LAT)
+            # 4.2. Read images
+            img_AP = imread(img_path_AP)
+            img_LAT = imread(img_path_LAT)
+            lbl_AP = imread(lbl_path_AP)
+            lbl_LAT = imread(lbl_path_LAT)
             # 4.3. Get regions
             regions_AP, img_AP_rotated_draw, regions_LAT, img_LAT_rotated_draw = get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT)
-            # 4.4. Save results
-            maybe_make_dir(os.path.join(paths['regions'],row['fname_AP_without_ext']))
-            maybe_make_dir(os.path.join(paths['regions'],row['fname_LAT_without_ext']))
-            ## AP
-            out_path = os.path.join(paths['regions'],row['case_id'],'AP','regions_AP.json')
-            with open(out_path, 'w') as fp:
-                json.dump(regions_AP, fp, cls=NpEncoder)
-            imsave(os.path.join(paths['regions'],row['case_id'],'AP','img_AP_regions.jpg'),img_AP_rotated_draw)
-            ## LAT
-            out_path = os.path.join(paths['regions'],row['case_id'],'LAT','regions_LAT.json')
-            with open(out_path, 'w') as fp:
-                json.dump(regions_LAT, fp, cls=NpEncoder)
-            imsave(os.path.join(paths['regions'],row['case_id'],'LAT','img_LAT_regions.jpg'),img_LAT_rotated_draw)
         elif('AP' in views):
             # 4.1. Paths
             img_path_AP = row['img_path_AP']
@@ -255,24 +217,16 @@ def main():
             else:
                 raise Exception(f"AP label for case {row['case_id']} could not be determined. Please check.")
             # 4.2. Read images
-            ## 4.2.1. Read images
-            if(file_format_orig in ['jpg','png']):
-                img_AP = imread(img_path_AP)
-            elif(file_format_orig in ['nifti']):
-                img_AP = read_nifti(img_path_AP)
-            # 4.2.2. Read labels
-            if(seg_model=='nnunet'):
-                lbl_AP = read_nifti(lbl_path_AP)
-            elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
-                lbl_AP = imread(lbl_path_AP)
+            img_AP = imread(img_path_AP)
+            lbl_AP = imread(lbl_path_AP)
             # 4.3. Get regions
             regions_AP, img_AP_rotated_draw = get_regions_final_only_AP(img_AP,lbl_AP)
             # 4.4. Save results
-            maybe_make_dir(os.path.join(paths['regions'],row['fname_AP_without_ext']))
-            out_path = os.path.join(paths['regions'],row['case_id'],'AP','regions_AP.json')
+            maybe_make_dir(paths['regions'],row['fname_AP_without_extension'])
+            out_path = os.path.join(paths['regions'],row['fname_AP_without_extension'],'regions_AP.json')
             with open(out_path, 'w') as fp:
-                json.dump(regions_AP, fp, cls=NpEncoder)
-            imsave(os.path.join(paths['regions'],row['case_id'],'AP','img_AP_regions.jpg'),img_AP_rotated_draw)
+                json.dump(regions_AP, fp)
+            imsave(os.path.join(paths['regions'],row['fname_AP_without_extension'],'img_AP_regions.jpg'),img_AP_rotated_draw)
         elif('LAT' in views):
             # 4.1. Paths
             img_path_LAT = row['img_path_LAT']
@@ -282,28 +236,19 @@ def main():
             else:
                 raise Exception(f"LAT label for case {row['case_id']} could not be determined. Please check.") 
             # 4.2. Read images
-            ## 4.2.1. Read images
-            if(file_format_orig in ['jpg','png']):
-                img_LAT = imread(img_path_LAT)
-            elif(file_format_orig in ['nifti']):
-                img_LAT = read_nifti(img_path_LAT)
-            # 4.2.2. Read labels
-            if(seg_model=='nnunet'):
-                lbl_LAT = read_nifti(lbl_path_LAT)
-            elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
-                lbl_LAT = imread(lbl_path_LAT)
+            img_LAT = imread(img_path_LAT)
+            lbl_LAT = imread(lbl_path_LAT)
             # 4.3. Get regions
             regions_LAT, img_LAT_rotated_draw = get_regions_final_only_LAT(img_LAT,lbl_LAT)
             # 4.4. Save results
-            maybe_make_dir(os.path.join(paths['regions'],row['fname_LAT_without_ext']))
-            out_path = os.path.join(paths['regions'],row['case_id'],'LAT','regions_LAT.json')
+            maybe_make_dir(paths['regions'],row['fname_LAT_without_extension'])
+            out_path = os.path.join(paths['regions'],row['fname_LAT_without_extension'],'regions_LAT.json')
             with open(out_path, 'w') as fp:
-                json.dump(regions_LAT, fp, cls=NpEncoder)
-            imsave(os.path.join(paths['regions'],row['case_id'],'LAT','img_LAT_regions.jpg'),img_LAT_rotated_draw)
+                json.dump(regions_LAT, fp)
+            imsave(os.path.join(paths['regions'],row['fname_LAT_without_extension'],'img_LAT_regions.jpg'),img_LAT_rotated_draw)
     # Step 5. Crop patches and save
+    
     # (Step 5. In uncropped version)
-    ## Save results
-    # Read img and label
 
 def check_and_adapt_csv(csv_path,file_format):
     AP_OK, LAT_OK = 2*(False,)
@@ -339,7 +284,7 @@ def check_and_adapt_csv(csv_path,file_format):
         for view in views:
             f = row[f"img_path_{view}"]
             assert os.path.isfile(f), f"File {f} not found! Please check."
-            # Create another column with fname_without_ext per view. Check format consistency and file existance.
+            # Create another column with fname_without_extension per each view. Check format consistency and file existance.
             if(file_format in ['.jpg','.png']):
                 ext = os.path.splitext(f)[-1]
                 assert ext==file_format, f"File formats not matching. Please verify all files have the same file extension indicated in the command. \n File {f} not matching file extension {file_format}."
@@ -377,16 +322,7 @@ def adapt_images_medt(folder_in,folder_out,file_format,resize_dim=256):
             out_path = os.path.join(folder_out,os.path.splitext(os.path.basename(f))[0][:-4]+'.png')
         imsave(out_path,img)
 
-class NpEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.integer):
-            return int(obj)
-        elif isinstance(obj, np.floating):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        else:
-            return super(NpEncoder, self).default(obj)
+
 
 if __name__=="__main__":
     main()
