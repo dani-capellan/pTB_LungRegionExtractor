@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--seg_model", action='store', required=True, default=None, choices=['nnunet','medt','gatedaxialunet'], help="Model used for segmenting the lungs. Choose among: ['nnunet','medt','gatedaxialunet'].")
     parser.add_argument("--output_folder", "-o", action='store', default=None, help="[str] Output folder. Required.")
     parser.add_argument("--fformat", "-f", action='store', default=None, choices=['jpg','png','nifti'], help="[str] JPG, PNG, NIFTI (.nii.gz) formats allowed. Possible choices: ['jpg','png','nifti'].")
-    parser.add_argument("--apply-clahe", "-clahe", action='store', default=True, required=False, choices=[False,True], help="[bool] Chooses whether to apply clahe or not. True/False.")
+    parser.add_argument("--no_clahe", "-nc", action='store_False', default=True, required=False, help="If flag, CLAHE will not be applied.")
     args = parser.parse_args()
 
     # Output regions in folders corresponding to each of the cases processed, not per image.
@@ -22,7 +22,7 @@ def main():
     seg_model = args.seg_model
     output_folder = args.output_folder
     file_format_orig = args.fformat
-    apply_clahe = args.apply_clahe
+    apply_clahe = args.no_clahe
     BASE_DIR = os.getcwd()
 
     # Define paths
