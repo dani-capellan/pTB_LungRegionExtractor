@@ -3,6 +3,9 @@
 @author: Daniel Capellán-Martín <daniel.capellan@upm.es>
 """
 
+# TODO: Relative coordinates in regions
+# TODO: Segmentations back to original dimensions
+
 from utils import *
 from functions_main import *
 import argparse
@@ -15,8 +18,6 @@ def main():
     parser.add_argument("--fformat", "-f", action='store', default=None, choices=['jpg','png','nifti'], help="[str] JPG, PNG, NIFTI (.nii.gz) formats allowed. Possible choices: ['jpg','png','nifti'].")
     parser.add_argument("--no_clahe", "-nc", action='store_false', default=True, required=False, help="If flag, CLAHE will not be applied.")
     args = parser.parse_args()
-
-    # Output regions in folders corresponding to each of the cases processed, not per image.
 
     csv_path = args.csv
     seg_model = args.seg_model
@@ -196,12 +197,17 @@ def main():
     #         INPUT_FOLDER = paths['gatedaxialunet_in']
     #         OUTPUT_FOLDER = paths['gatedaxialunet_out']
     #         os.system(f"python predict_medt-gatedaxialunet_20-40-60.py")
+    # Step 
     # Step 4. Schema over the images
     for index,row in df.iterrows():
         if('AP' in views and 'LAT' in views):
             # 4.1. Paths
-            img_path_AP = row['img_path_AP']
-            img_path_LAT = row['img_path_LAT']
+            if(apply_clahe):
+                img_path_AP = os.path.join(paths['cropped_clahe'],'AP',os.path.basename(row["img_path_AP"]))
+                img_path_LAT = os.path.join(paths['cropped_clahe'],'LAT',os.path.basename(row["img_path_LAT"]))
+            else:
+                img_path_AP = os.path.join(paths['cropped'],'AP',os.path.basename(row["img_path_AP"]))
+                img_path_LAT = os.path.join(paths['cropped'],'LAT',os.path.basename(row["img_path_LAT"]))
             if(seg_model=='nnunet'):
                 lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.nii.gz')) if row['case_id'] in f]
                 lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.nii.gz')) if row['case_id'] in f]
