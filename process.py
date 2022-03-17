@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--seg_model", action='store', required=True, default=None, choices=['nnunet','medt','gatedaxialunet'], help="Model used for segmenting the lungs. Choose among: ['nnunet','medt','gatedaxialunet'].")
     parser.add_argument("--output_folder", "-o", action='store', default=None, help="[str] Output folder. Required.")
     parser.add_argument("--fformat", "-f", action='store', default=None, choices=['jpg','png','nifti'], help="[str] JPG, PNG, NIFTI (.nii.gz) formats allowed. Possible choices: ['jpg','png','nifti'].")
-    parser.add_argument("--no_clahe", "-nc", action='store_False', default=True, required=False, help="If flag, CLAHE will not be applied.")
+    parser.add_argument("--no_clahe", "-nc", action='store_false', default=True, required=False, help="If flag, CLAHE will not be applied.")
     args = parser.parse_args()
 
     # Output regions in folders corresponding to each of the cases processed, not per image.
@@ -234,8 +234,8 @@ def main():
             # 4.3. Get regions
             regions_AP, img_AP_rotated_draw, regions_LAT, img_LAT_rotated_draw = get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT)
             # 4.4. Save results
-            maybe_make_dir(os.path.join(paths['regions'],row['fname_AP_without_ext']))
-            maybe_make_dir(os.path.join(paths['regions'],row['fname_LAT_without_ext']))
+            maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'AP'))
+            maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'LAT'))
             ## AP
             out_path = os.path.join(paths['regions'],row['case_id'],'AP','regions_AP.json')
             with open(out_path, 'w') as fp:
@@ -268,7 +268,7 @@ def main():
             # 4.3. Get regions
             regions_AP, img_AP_rotated_draw = get_regions_final_only_AP(img_AP,lbl_AP)
             # 4.4. Save results
-            maybe_make_dir(os.path.join(paths['regions'],row['fname_AP_without_ext']))
+            maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'AP'))
             out_path = os.path.join(paths['regions'],row['case_id'],'AP','regions_AP.json')
             with open(out_path, 'w') as fp:
                 json.dump(regions_AP, fp, cls=NpEncoder)
@@ -295,7 +295,7 @@ def main():
             # 4.3. Get regions
             regions_LAT, img_LAT_rotated_draw = get_regions_final_only_LAT(img_LAT,lbl_LAT)
             # 4.4. Save results
-            maybe_make_dir(os.path.join(paths['regions'],row['fname_LAT_without_ext']))
+            maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'LAT'))
             out_path = os.path.join(paths['regions'],row['case_id'],'LAT','regions_LAT.json')
             with open(out_path, 'w') as fp:
                 json.dump(regions_LAT, fp, cls=NpEncoder)
