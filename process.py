@@ -195,7 +195,7 @@ def main():
             if(view=='LAT'):
                 os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 135")
     elif(seg_model in ['medt','gatedaxialunet']):
-            adapt_images_medt(folder_in=os.path.join(paths('yolo_out'),view),folder_out=os.path.join(paths('medt_in'),view),file_format=file_format,resize_dim=256)
+            adapt_images_medt(folder_in=os.path.join(paths['yolo_out'],view),folder_out=os.path.join(paths['medt_in'],view),file_format=file_format,resize_dim=256)
             os.chdir(MEDT_DIR)
             MODEL_DIR = paths['medt_models'][seg_model]
             INPUT_FOLDER = paths[f"{seg_model}_in"]
