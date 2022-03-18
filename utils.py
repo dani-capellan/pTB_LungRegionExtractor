@@ -207,3 +207,8 @@ def crop_img(img,coords):
     x,y,h,w = coords
     img_cropped = img[y:y+h,x:x+w]
     return img_cropped
+
+def maybe_remove_jupyter_checkpoints(path_dir):
+    for root, subdirs, files in os.walk(TEST_DIR):
+        if(os.path.basename(root)=='.ipynb_checkpoints'):
+            shutil.rmtree(root)

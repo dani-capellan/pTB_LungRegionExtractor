@@ -5,6 +5,8 @@
 
 # TODO: Relative coordinates in regions
 # TODO: Segmentations back to original dimensions
+# TODO: Segmentation model selection
+# TODO: LAT orientation correction (CNN)
 
 from utils import *
 from functions_main import *
@@ -25,6 +27,7 @@ def main():
     file_format_orig = args.fformat
     apply_clahe = args.no_clahe
     BASE_DIR = os.getcwd()
+    MEDT_DIR = os.path.join(os.getcwd(),'Medical-Transformer')
 
     # Define paths
     paths = {
@@ -43,6 +46,10 @@ def main():
         'yolo_models': {
             'AP': os.path.join(BASE_DIR,'yolov5_weights','AP_pTB_yolov5_weights_v12112021.pt'),
             'LAT': os.path.join(BASE_DIR,'yolov5_weights','LAT_pTB_yolov5_weights_v09022022.pt')
+        },
+        'medt_models':{
+            'medt': os.path.join(BASE_DIR,'medt','17022022_145805_medtfinal_model.pth'),
+            'gatedaxialunet': os.path.join(BASE_DIR,'gatedaxialunet','17022022_140431_gatedaxialunetfinal_model.pth'),
         }
     }
 
@@ -187,27 +194,23 @@ def main():
                 os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 136")
             if(view=='LAT'):
                 os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 135")
-    # elif(seg_model=='medt'):
-    #         adapt_images_medt(folder_in=os.path.join(paths('yolo_out'),view),folder_out=os.path.join(paths('medt_in'),view),file_format=file_format,resize_dim=256)
-    #         INPUT_FOLDER = paths['medt_in']
-    #         OUTPUT_FOLDER = paths['medt_out']
-    #         os.system(f"python predict_medt-gatedaxialunet_20-40-60.py")
-    # elif(seg_model=='gatedaxialunet'):
-    #         adapt_images_medt(folder_in=os.path.join(paths('yolo_out'),view),folder_out=os.path.join(paths('gatedaxialunet_in'),view),file_format=file_format,resize_dim=256)
-    #         INPUT_FOLDER = paths['gatedaxialunet_in']
-    #         OUTPUT_FOLDER = paths['gatedaxialunet_out']
-    #         os.system(f"python predict_medt-gatedaxialunet_20-40-60.py")
-    # Step 
+    elif(seg_model in ['medt','gatedaxialunet']):
+            adapt_images_medt(folder_in=os.path.join(paths('yolo_out'),view),folder_out=os.path.join(paths('medt_in'),view),file_format=file_format,resize_dim=256)
+            os.chdir(MEDT_DIR)
+            MODEL_DIR = paths['medt_models'][seg_model]
+            INPUT_FOLDER = paths[f"{seg_model}_in"]
+            OUTPUT_FOLDER = paths[f"{seg_model}_out"]
+            maybe_make_dir(OUTPUT_FOLDER)
+            DIM = 256
+            maybe_remove_jupyter_checkpoints(INPUT_FOLDER)
+            os.system(f"python test.py --loaddirec {MODEL_DIR} --val_dataset {INPUT_FOLDER} --direc {OUTPUT_FOLDER} --batch_size 1 --modelname {seg_model} --imgsize {DIM} --gray ''no''")
+            os.chdir(BASE_DIR)
     # Step 4. Schema over the images
     for index,row in df.iterrows():
         if('AP' in views and 'LAT' in views):
             # 4.1. Paths
-            if(apply_clahe):
-                img_path_AP = os.path.join(paths['cropped_clahe'],'AP',os.path.basename(row["img_path_AP"]))
-                img_path_LAT = os.path.join(paths['cropped_clahe'],'LAT',os.path.basename(row["img_path_LAT"]))
-            else:
-                img_path_AP = os.path.join(paths['cropped'],'AP',os.path.basename(row["img_path_AP"]))
-                img_path_LAT = os.path.join(paths['cropped'],'LAT',os.path.basename(row["img_path_LAT"]))
+            img_path_AP = os.path.join(paths['cropped'],'AP',os.path.basename(row["img_path_AP"]))
+            img_path_LAT = os.path.join(paths['cropped'],'LAT',os.path.basename(row["img_path_LAT"]))
             if(seg_model=='nnunet'):
                 lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.nii.gz')) if row['case_id'] in f]
                 lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.nii.gz')) if row['case_id'] in f]
@@ -237,6 +240,7 @@ def main():
             elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
                 lbl_AP = imread(lbl_path_AP)
                 lbl_LAT = imread(lbl_path_LAT)
+            # 4.3. LAT orientation correction - TODO
             # 4.3. Get regions
             regions_AP, img_AP_rotated_draw, regions_LAT, img_LAT_rotated_draw = get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT)
             # 4.4. Save results

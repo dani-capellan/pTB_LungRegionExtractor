@@ -511,26 +511,10 @@ def get_regions_final_only_AP(img_AP,lbl_AP):
     rectangles_AP_90deg, rect_lbl_AP_90deg, out_lbl_AP_90deg = get_schema_AP_90deg(lbl_AP_rotated)
     ## 1.4. Get regions from AP image
     regions_AP, img_AP_rotated_draw = get_regions_AP(img_AP_rotated,rectangles_AP_90deg)
-    # # 2. LAT
-    # ## 2.1. Get vertical rectangles from LAT label (not rotation needed)
-    # rectangles_LAT_90deg, rect_lbl_LAT_90deg, out_lbl_LAT_90deg = get_schema_LAT_90deg(lbl_LAT)
-    # ## 2.2. Get regions from LAT image
-    # regions_LAT, img_LAT_rotated_draw = get_regions_LAT(img_LAT,rectangles_LAT_90deg,regions_AP)
     return regions_AP, img_AP_rotated_draw
 
 def get_regions_final_only_LAT(img_LAT,lbl_LAT):
     '''Warning: If only AP or LAT, results will have no correspondence between AP and LAT views'''
-    # # 1. AP
-    # ## 1.1. Get initial schema
-    # rectangles_AP, rect_lbl_AP, out_lbl_AP = get_schema(lbl_AP)
-    # ## 1.2. Rotate image and label
-    # theta_rotation_image_AP = np.mean([rectangles_AP[key]['rotation'] for key in rectangles_AP]) 
-    # img_AP_rotated = rotate_image(img_AP, -(theta_rotation_image_AP))
-    # lbl_AP_rotated = rotate_image(lbl_AP, -(theta_rotation_image_AP))
-    # ## 1.3. Get vertical rectangles from rotated label
-    # rectangles_AP_90deg, rect_lbl_AP_90deg, out_lbl_AP_90deg = get_schema_AP_90deg(lbl_AP_rotated)
-    # ## 1.4. Get regions from AP image
-    # regions_AP, img_AP_rotated_draw = get_regions_AP(img_AP_rotated,rectangles_AP_90deg)
     # 2. LAT
     ## 2.1. Get vertical rectangles from LAT label (not rotation needed)
     rectangles_LAT_90deg, rect_lbl_LAT_90deg, out_lbl_LAT_90deg = get_schema_LAT_90deg(lbl_LAT)
