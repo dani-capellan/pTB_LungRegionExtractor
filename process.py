@@ -48,8 +48,14 @@ def main():
             'LAT': os.path.join(BASE_DIR,'yolov5_weights','LAT_pTB_yolov5_weights_v09022022.pt')
         },
         'medt_models':{
-            'medt': os.path.join(BASE_DIR,'medt','17022022_145805_medtfinal_model.pth'),
-            'gatedaxialunet': os.path.join(BASE_DIR,'gatedaxialunet','17022022_140431_gatedaxialunetfinal_model.pth'),
+            'AP':{
+                'medt': os.path.join(BASE_DIR,'medt_weights','AP','medt','17022022_145805_medtfinal_model.pth'),
+                'gatedaxialunet': os.path.join(BASE_DIR,'medt_weights','AP','gatedaxialunet','17022022_140431_gatedaxialunetfinal_model.pth'),
+            },
+            'LAT':{
+                'medt': os.path.join(BASE_DIR,'medt_weights','LAT','medt','17022022_145805_medtfinal_model.pth'),
+                'gatedaxialunet': os.path.join(BASE_DIR,'medt_weights','LAT','gatedaxialunet','17022022_140431_gatedaxialunetfinal_model.pth'),
+            }
         }
     }
 
@@ -195,11 +201,13 @@ def main():
             if(view=='LAT'):
                 os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 135")
     elif(seg_model in ['medt','gatedaxialunet']):
+        for view in views:
+            maybe_make_dir(os.path.join(paths['medt_in'],view))
             adapt_images_medt(folder_in=os.path.join(paths['yolo_out'],view),folder_out=os.path.join(paths['medt_in'],view),file_format=file_format,resize_dim=256)
             os.chdir(MEDT_DIR)
-            MODEL_DIR = paths['medt_models'][seg_model]
-            INPUT_FOLDER = paths[f"{seg_model}_in"]
-            OUTPUT_FOLDER = paths[f"{seg_model}_out"]
+            MODEL_DIR = paths['medt_models'][view][seg_model]
+            INPUT_FOLDER = os.path.join(paths[f"{seg_model}_in"],view)
+            OUTPUT_FOLDER = os.path.join(paths[f"{seg_model}_out"],view)
             maybe_make_dir(OUTPUT_FOLDER)
             DIM = 256
             maybe_remove_jupyter_checkpoints(INPUT_FOLDER)
@@ -214,7 +222,7 @@ def main():
             if(seg_model=='nnunet'):
                 lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.nii.gz')) if row['case_id'] in f]
                 lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.nii.gz')) if row['case_id'] in f]
-            elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
+            elif(seg_model in ['medt','gatedaxialunet']):
                 lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.png')) if row['case_id'] in f]
                 lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.png')) if row['case_id'] in f]
             if(lbl_path_AP and len(lbl_path_AP)==1):
