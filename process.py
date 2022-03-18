@@ -11,6 +11,7 @@
 from utils import *
 from functions_main import *
 import argparse
+import tensorflow as tf
 
 def main():
     parser = argparse.ArgumentParser(description='Process AP and/or LAT CXR pediatric images. img_AP and img_LAT folders should contain analogous images. If only AP or LAT images are introduced (not both), no matching between views will be done.')
@@ -258,8 +259,11 @@ def main():
             if(orientation_binary==0):
                 img_LAT = cv2.flip(img_LAT, 1)
                 lbl_LAT = cv2.flip(lbl_LAT, 1)
-                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','image_corrected.jpg'))
-                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','label_corrected.jpg'))
+                if(seg_model=='nnunet'):
+                    lbl_LAT = cv2.normalize(lbl_LAT,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
+                maybe_make_dir(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT'))
+                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','image_corrected.jpg'),img_LAT)
+                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','label_corrected.jpg'),lbl_LAT)
             # 4.4. Get regions
             regions_AP, img_AP_rotated_draw, regions_LAT, img_LAT_rotated_draw = get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT)
             # 4.5. Save results
@@ -331,8 +335,11 @@ def main():
             if(orientation_binary==0):
                 img_LAT = cv2.flip(img_LAT, 1)
                 lbl_LAT = cv2.flip(lbl_LAT, 1)
-                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','image_corrected.jpg'))
-                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','label_corrected.jpg'))
+                if(seg_model=='nnunet'):
+                    lbl_LAT = cv2.normalize(lbl_LAT,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
+                maybe_make_dir(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT'))
+                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','image_corrected.jpg'),img_LAT)
+                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','label_corrected.jpg'),lbl_LAT)
             # 4.4. Get regions
             regions_LAT, img_LAT_rotated_draw = get_regions_final_only_LAT(img_LAT,lbl_LAT)
             # 4.5. Save results
