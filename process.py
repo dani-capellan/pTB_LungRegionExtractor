@@ -3,10 +3,10 @@
 @author: Daniel Capellán-Martín <daniel.capellan@upm.es>
 """
 
-# TODO: Relative coordinates in regions
-# TODO: Segmentations back to original dimensions
-# TODO: Segmentation model selection
+# TODO: Relative coordinates in regions - possibility to apply cropping and drawings to original dimensions
 # TODO: LAT orientation correction (CNN)
+# TODO: Patch extraction
+# TODO: Correct LATMM position - more posterior
 
 from utils import *
 from functions_main import *
@@ -42,6 +42,7 @@ def main():
         'medt_out': os.path.join(output_folder, 'medt_predicted'),
         'gatedaxialunet_in': os.path.join(output_folder, 'gatedaxialunet_in'),
         'gatedaxialunet_out': os.path.join(output_folder, 'gatedaxialunet_predicted'),
+        'orientation_corrected': os.path.join(output_folder, 'orientation_corrected'),
         'regions': os.path.join(output_folder, 'regions'), 
         'yolo_models': {
             'AP': os.path.join(BASE_DIR,'yolov5_weights','AP_pTB_yolov5_weights_v12112021.pt'),
@@ -53,10 +54,11 @@ def main():
                 'gatedaxialunet': os.path.join(BASE_DIR,'medt_weights','AP','gatedaxialunet','17022022_140431_gatedaxialunetfinal_model.pth'),
             },
             'LAT':{
-                'medt': os.path.join(BASE_DIR,'medt_weights','LAT','medt','17022022_145805_medtfinal_model.pth'),
-                'gatedaxialunet': os.path.join(BASE_DIR,'medt_weights','LAT','gatedaxialunet','17022022_140431_gatedaxialunetfinal_model.pth'),
+                'medt': os.path.join(BASE_DIR,'medt_weights','LAT','medt','17022022_145402_medtfinal_model.pth'),
+                'gatedaxialunet': os.path.join(BASE_DIR,'medt_weights','LAT','gatedaxialunet','17022022_140619_gatedaxialunetfinal_model.pth'),
             }
-        }
+        },
+        'lat_cnn_model': os.path.join(BASE_DIR,'lat_cnn_resnet_model','LAT_orientation_pTBResNetBAdam_saved-model-200-1.00_best.h5')
     }
 
     # File format definition
@@ -189,7 +191,6 @@ def main():
     # Step 3. Segmentation with selected model (batch)
     if(seg_model=='nnunet'):
         for view in views:
-            maybe_make_dir(os.path.join(paths['nnunet_in'],view))
             if(apply_clahe):
                 adapt_images_nnunet(folder_in=os.path.join(paths['cropped_clahe'],view),folder_out=os.path.join(paths['nnunet_in'],view),file_format=file_format)
             else:
@@ -202,11 +203,10 @@ def main():
                 os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 135")
     elif(seg_model in ['medt','gatedaxialunet']):
         for view in views:
-            maybe_make_dir(os.path.join(paths['medt_in'],view))
             adapt_images_medt(folder_in=os.path.join(paths['yolo_out'],view),folder_out=os.path.join(paths['medt_in'],view),file_format=file_format,resize_dim=256)
             os.chdir(MEDT_DIR)
             MODEL_DIR = paths['medt_models'][view][seg_model]
-            INPUT_FOLDER = os.path.join(paths[f"{seg_model}_in"],view)
+            INPUT_FOLDER = os.path.join(paths[f"medt_in"],view)
             OUTPUT_FOLDER = os.path.join(paths[f"{seg_model}_out"],view)
             maybe_make_dir(OUTPUT_FOLDER)
             DIM = 256
@@ -248,18 +248,29 @@ def main():
             elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
                 lbl_AP = imread(lbl_path_AP)
                 lbl_LAT = imread(lbl_path_LAT)
-            # 4.3. LAT orientation correction - TODO
-            # 4.3. Get regions
+            # 4.3. LAT orientation correction
+            img_LAT_CNN = preprocess_with_clahe(img_LAT,img_shape=(256,256))
+            img_LAT_CNN = np.expand_dims(img_LAT_CNN,axis=0)
+            model = tf.keras.models.load_model(paths['lat_cnn_model'])
+            orientation = model.predict(img_LAT_CNN).flatten()[0]
+            orientation_binary = (orientation>0.5).astype(int)
+            print(f"Predicted Orientation: {orientation_binary}")
+            if(orientation_binary==0):
+                img_LAT = cv2.flip(img_LAT, 1)
+                lbl_LAT = cv2.flip(lbl_LAT, 1)
+                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','image_corrected.jpg'))
+                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','label_corrected.jpg'))
+            # 4.4. Get regions
             regions_AP, img_AP_rotated_draw, regions_LAT, img_LAT_rotated_draw = get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT)
-            # 4.4. Save results
+            # 4.5. Save results
             maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'AP'))
             maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'LAT'))
-            ## AP
+            ## AP - Save
             out_path = os.path.join(paths['regions'],row['case_id'],'AP','regions_AP.json')
             with open(out_path, 'w') as fp:
                 json.dump(regions_AP, fp, cls=NpEncoder)
             imsave(os.path.join(paths['regions'],row['case_id'],'AP','img_AP_regions.jpg'),img_AP_rotated_draw)
-            ## LAT
+            ## LAT - Save
             out_path = os.path.join(paths['regions'],row['case_id'],'LAT','regions_LAT.json')
             with open(out_path, 'w') as fp:
                 json.dump(regions_LAT, fp, cls=NpEncoder)
@@ -310,9 +321,21 @@ def main():
                 lbl_LAT = read_nifti(lbl_path_LAT)
             elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
                 lbl_LAT = imread(lbl_path_LAT)
-            # 4.3. Get regions
+            # 4.3. LAT orientation correction
+            img_LAT_CNN = preprocess_with_clahe(img_LAT,img_shape=(256,256))
+            img_LAT_CNN = np.expand_dims(img_LAT_CNN,axis=0)
+            model = tf.keras.models.load_model(paths['lat_cnn_model'])
+            orientation = model.predict(img_LAT_CNN).flatten()[0]
+            orientation_binary = (orientation>0.5).astype(int)
+            print(f"Predicted Orientation: {orientation_binary}")
+            if(orientation_binary==0):
+                img_LAT = cv2.flip(img_LAT, 1)
+                lbl_LAT = cv2.flip(lbl_LAT, 1)
+                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','image_corrected.jpg'))
+                imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','label_corrected.jpg'))
+            # 4.4. Get regions
             regions_LAT, img_LAT_rotated_draw = get_regions_final_only_LAT(img_LAT,lbl_LAT)
-            # 4.4. Save results
+            # 4.5. Save results
             maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'LAT'))
             out_path = os.path.join(paths['regions'],row['case_id'],'LAT','regions_LAT.json')
             with open(out_path, 'w') as fp:
@@ -372,6 +395,7 @@ def check_and_adapt_csv(csv_path,file_format):
 def adapt_images_nnunet(folder_in,folder_out,file_format):
     subfiles = sorted(glob.glob(os.path.join(folder_in,'*'+file_format)))
     for f in subfiles:
+        maybe_make_dir(folder_out)
         if(file_format in ['.jpg','.png']):
             output_filename_truncated = os.path.splitext(os.path.basename(f))[0]
             out_path_truncated = os.path.join(folder_out,output_filename_truncated)
@@ -389,11 +413,16 @@ def adapt_images_medt(folder_in,folder_out,file_format,resize_dim=256):
             img = read_nifti(f)
         img = resize(img,(resize_dim,resize_dim))
         img = cv2.normalize(img,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
+        maybe_make_dir(os.path.join(folder_out,'img'))
+        maybe_make_dir(os.path.join(folder_out,'labelcol'))
         if(file_format in ['.jpg','.png']):
-            out_path = os.path.join(folder_out,os.path.splitext(os.path.basename(f))[0]+'.png')
+            out_path = os.path.join(folder_out,'img',os.path.splitext(os.path.basename(f))[0]+'.png')
+            out_path_labelcol = os.path.join(folder_out,'labelcol',os.path.splitext(os.path.basename(f))[0]+'.png')  # Not used by medt implementation, just to comply with code's requirements.
         elif(file_format == '.nii.gz'):
-            out_path = os.path.join(folder_out,os.path.splitext(os.path.basename(f))[0][:-4]+'.png')
+            out_path = os.path.join(folder_out,'img',os.path.splitext(os.path.basename(f))[0][:-4]+'.png')
+            out_path_labelcol = os.path.join(folder_out,'labelcol',os.path.splitext(os.path.basename(f))[0][:-4]+'.png')  # Not used by medt implementation, just to fullfil with code's requirements.
         imsave(out_path,img)
+        imsave(out_path_labelcol,img)
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):

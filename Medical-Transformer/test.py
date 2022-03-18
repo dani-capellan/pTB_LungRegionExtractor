@@ -59,7 +59,7 @@ args = parser.parse_args()
 
 direc = args.direc
 gray_ = args.gray
-aug = args.aug
+# aug = args.aug
 direc = args.direc
 modelname = args.modelname
 imgsize = args.imgsize
