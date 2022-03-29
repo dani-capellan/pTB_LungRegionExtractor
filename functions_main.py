@@ -573,6 +573,7 @@ def get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT,img_AP_reg,img_LAT_reg):
     rectangles_AP_90deg, rect_lbl_AP_90deg, out_lbl_AP_90deg = get_schema_AP_90deg(lbl_AP_rotated)
     ## 1.4. Get regions from AP image
     regions_AP, img_AP_rotated_draw = get_regions_AP(img_AP_rotated,img_AP_rotated_reg,rectangles_AP_90deg)
+    regions_AP['image_rotation'] = theta_rotation_image_AP  # Rotation in degrees
     # 2. LAT
     ## 2.1. Get vertical rectangles from LAT label (not rotation needed)
     rectangles_LAT_90deg, rect_lbl_LAT_90deg, out_lbl_LAT_90deg = get_schema_LAT_90deg(lbl_LAT)
@@ -594,6 +595,7 @@ def get_regions_final_only_AP(img_AP,lbl_AP,img_AP_reg):
     rectangles_AP_90deg, rect_lbl_AP_90deg, out_lbl_AP_90deg = get_schema_AP_90deg(lbl_AP_rotated)
     ## 1.4. Get regions from AP image
     regions_AP, img_AP_rotated_draw = get_regions_AP(img_AP_rotated,img_AP_rotated_reg,rectangles_AP_90deg)
+    regions_AP['image_rotation'] = theta_rotation_image_AP  # Rotation in degrees
     return regions_AP, img_AP_rotated_draw
 
 def get_regions_final_only_LAT(img_LAT,lbl_LAT,img_LAT_reg):

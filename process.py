@@ -3,8 +3,6 @@
 @author: Daniel Capellán-Martín <daniel.capellan@upm.es>
 """
 
-# TODO: Relative coordinates in regions - possibility to apply cropping and drawings to original dimensions
-# TODO: LAT orientation correction (CNN)
 # TODO: Patch extraction
 # TODO: Correct LATMM position - more posterior
 
@@ -199,9 +197,9 @@ def main():
             INPUT_FOLDER = os.path.join(paths[f"{seg_model}_in"],view)
             OUTPUT_FOLDER = os.path.join(paths[f"{seg_model}_out"],view)
             if(view=='AP'):
-                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 136")
+                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 136 --disable_tta")
             if(view=='LAT'):
-                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 135")
+                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 135 --disable_tta")
     elif(seg_model in ['medt','gatedaxialunet']):
         for view in views:
             if(apply_clahe):
@@ -387,7 +385,45 @@ def main():
                 json.dump(regions_LAT, fp, cls=NpEncoder)
             imsave(os.path.join(paths['regions'],row['case_id'],'LAT','img_LAT_regions.jpg'),img_LAT_rotated_draw)
     # Step 5. Crop patches and save
-
+    for index,row in df.iterrows():
+        print(f"{row['case_id']}: Cropping regions...")
+        for view in views:
+            # Load image to extract regions from
+            img_path_reg = os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"]))
+            if(file_format_orig in ['jpg','png']):
+                img_reg = imread(img_path_reg)
+            elif(file_format_orig in ['nifti']):
+                img_reg = read_nifti(img_path_reg)
+            # Load JSON with relative coordinates
+            json_path = os.path.join(paths['regions'],row['case_id'],view,f"regions_{view}.json")
+            with open(json_path) as json_file:
+                regions = json.load(json_file)
+            # Apply rotation to AP image
+            if(view in ['AP']):
+                img_reg = rotate_image(img_reg, -(regions['image_rotation']))
+            # Crop regions
+            for reg in regions['rel']:
+                maybe_make_dir(os.path.join(paths['regions'],row['case_id'],view,reg))
+                if('lung' in reg):
+                    for third_idx in regions['rel'][reg]['thirds']:
+                        # Crop region
+                        coord_x = int(np.round(regions['rel'][reg]['thirds'][third_idx]['x']*img_reg.shape[1]))
+                        coord_y = int(np.round(regions['rel'][reg]['thirds'][third_idx]['y']*img_reg.shape[0]))
+                        coord_w = int(np.round(regions['rel'][reg]['thirds'][third_idx]['width']*img_reg.shape[1]))
+                        coord_h = int(np.round(regions['rel'][reg]['thirds'][third_idx]['height']*img_reg.shape[0]))
+                        img = crop_img(img_reg,(coord_x,coord_y,coord_h,coord_w))
+                        # Save
+                        out_path = os.path.join(paths['regions'],row['case_id'],view,reg,f"third_{int(third_idx)+1}.jpg")
+                        imsave(out_path,img)
+                # Crop region
+                coord_x = int(np.round(regions['rel'][reg]['x']*img_reg.shape[1]))
+                coord_y = int(np.round(regions['rel'][reg]['y']*img_reg.shape[0]))
+                coord_w = int(np.round(regions['rel'][reg]['width']*img_reg.shape[1]))
+                coord_h = int(np.round(regions['rel'][reg]['height']*img_reg.shape[0]))
+                img = crop_img(img_reg,(coord_x,coord_y,coord_h,coord_w))
+                # Save
+                out_path = os.path.join(paths['regions'],row['case_id'],view,reg,f"{reg}.jpg")
+                imsave(out_path,img)
     # (Step 5. In uncropped version)
     ## Save results
     # Read img and label
@@ -435,6 +471,16 @@ def check_and_adapt_csv(csv_path,file_format):
                 ext = os.path.basename(f)[-7:]
                 assert ext==file_format, f"File formats not matching. Please verify all files have the same file extension indicated in the command. \n File {f} not matching file extension {file_format}."
                 df.loc[index,f"fname_{view}_without_ext"] = os.path.splitext(os.path.basename(f))[0][:-4]
+
+    # If everything is OK, proceed with more checks.
+    for index,row in df.iterrows():
+        for view in views:
+            f = row[f"img_path_{view}"]
+            if(file_format in ['.jpg','.png']):
+                img = imread(f)
+            elif(file_format in ['.nii.gz']):
+                img = read_nifti(f)
+            assert len(img.shape)==2, f"Images should be in 2D! Please adapt images first. Dimensions: {img.shape}"
         
     return df, views
 
