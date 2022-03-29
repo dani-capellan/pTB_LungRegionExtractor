@@ -345,140 +345,221 @@ def rotate_image(image, theta):
 
     return cv2.warpAffine(image,mapping,(width, height),flags=cv2.WARP_INVERSE_MAP,borderMode=cv2.BORDER_CONSTANT)
 
-def get_regions_AP(img_AP_rotated,rectangles_AP_90deg):
+def abs2rel(abs_dict,img):
+    '''
+    inputs:
+        abs_dict: dict - dictionary containing, at least: {'x','y','width','height'}
+        img: image - where to extract shape/dimensions
+    outputs: relative coordinates:
+        rel_dict - dictionary with the form {'x','y','width','height'}
+    '''
+    h,w = img.shape[0:2]
+    rel_dict = {
+        'x': abs_dict['x']/w,
+        'y': abs_dict['y']/h,
+        'width': abs_dict['width']/w,
+        'height': abs_dict['height']/h,
+    }
+    return rel_dict
+
+def get_regions_AP(img_AP_rotated,img_AP_rotated_reg,rectangles_AP_90deg):
     # Adapt input
-    regions = {}
-    regions['right_lung'] = rectangles_AP_90deg[0]
-    regions['left_lung'] = rectangles_AP_90deg[1]
+    regions = {
+        'abs': {},
+        'rel': {}
+    }
+    regions['abs']['right_lung'] = rectangles_AP_90deg[0]
+    regions['abs']['left_lung'] = rectangles_AP_90deg[1]
     # Img already rotated -> to RGB
-    img_AP_rotated_draw = gray2rgb(img_AP_rotated)
+    if(len(img_AP_rotated.shape)==2):
+        img_AP_rotated_draw = gray2rgb(img_AP_rotated_reg)
+    else:
+        img_AP_rotated_draw = img_AP_rotated_reg.copy()
     # 0. Same Y coordinate and height for both lungs: correct misalignment between lungs
-    min_y_lungs = np.min([regions['right_lung']['y'],regions['left_lung']['y']])
-    max_y_lungs = np.max([regions['right_lung']['y']+regions['right_lung']['height'],regions['left_lung']['y']+regions['left_lung']['height']])
+    min_y_lungs = np.min([regions['abs']['right_lung']['y'],regions['abs']['left_lung']['y']])
+    max_y_lungs = np.max([regions['abs']['right_lung']['y']+regions['abs']['right_lung']['height'],regions['abs']['left_lung']['y']+regions['abs']['left_lung']['height']])
     max_height_lungs = max_y_lungs - min_y_lungs
-    regions['right_lung']['y'] = min_y_lungs  # Align top coordinate for both lungs
-    regions['left_lung']['y'] = min_y_lungs  # Align top coordinate for both lungs
-    regions['right_lung']['height'] = max_height_lungs
-    regions['left_lung']['height'] = max_height_lungs
+    regions['abs']['right_lung']['y'] = min_y_lungs  # Align top coordinate for both lungs
+    regions['abs']['left_lung']['y'] = min_y_lungs  # Align top coordinate for both lungs
+    regions['abs']['right_lung']['height'] = max_height_lungs
+    regions['abs']['left_lung']['height'] = max_height_lungs
+    ## Relative coordinates with respect to image shape
+    regions['rel']['right_lung'] = abs2rel(regions['abs']['right_lung'], img_AP_rotated)
+    regions['rel']['left_lung'] = abs2rel(regions['abs']['left_lung'], img_AP_rotated)
     # 1. Upper patch
-    upper_patch_x = regions['right_lung']['x'] + int(np.round(0.5*regions['right_lung']['width']))
-    upper_patch_y = np.min([regions['right_lung']['y'],regions['left_lung']['y']])
-    upper_patch_width = (regions['left_lung']['x'] + int(np.round(0.5*regions['left_lung']['width']))) - upper_patch_x
+    upper_patch_x = regions['abs']['right_lung']['x'] + int(np.round(0.5*regions['abs']['right_lung']['width']))
+    upper_patch_y = np.min([regions['abs']['right_lung']['y'],regions['abs']['left_lung']['y']])
+    upper_patch_width = (regions['abs']['left_lung']['x'] + int(np.round(0.5*regions['abs']['left_lung']['width']))) - upper_patch_x
     upper_patch_heigth = int(np.round(0.5*max_height_lungs))
-    regions['upper_patch'] = {
+    regions['abs']['upper_patch'] = {
         'x': upper_patch_x,
         'y': upper_patch_y,
         'width': upper_patch_width,
         'height': upper_patch_heigth
     }
-    ## Draw on imag5
-    cv2.rectangle(img_AP_rotated_draw, (regions['upper_patch']['x'], regions['upper_patch']['y']), (regions['upper_patch']['x'] + regions['upper_patch']['width'], regions['upper_patch']['y'] + regions['upper_patch']['height']), (255, 153, 51), 6)
+    ## Relative coordinates with respect to image shape
+    regions['rel']['upper_patch'] = abs2rel(regions['abs']['upper_patch'], img_AP_rotated)
+    ## Draw on image
+    # cv2.rectangle(img_AP_rotated_draw, (regions['abs']['upper_patch']['x'], regions['abs']['upper_patch']['y']), (regions['abs']['upper_patch']['x'] + regions['abs']['upper_patch']['width'], regions['abs']['upper_patch']['y'] + regions['abs']['upper_patch']['height']), (255, 153, 51), 6)  # Absolute coordinates
+    p0 = (int(np.round(regions['rel']['upper_patch']['x']*img_AP_rotated_draw.shape[1])), int(np.round(regions['rel']['upper_patch']['y']*img_AP_rotated_draw.shape[0])))
+    p1 = (int(np.round((regions['rel']['upper_patch']['x'] + regions['rel']['upper_patch']['width'])*img_AP_rotated_draw.shape[1])), int(np.round((regions['rel']['upper_patch']['y'] + regions['rel']['upper_patch']['height'])*img_AP_rotated_draw.shape[0])))
+    cv2.rectangle(img_AP_rotated_draw, p0, p1, (255, 153, 51), 6)  # Relative coordinates
     # 2. Middle patch
-    max_height_lungs = np.max([regions['right_lung']['height'],regions['left_lung']['height']])
-    middle_patch_x = regions['right_lung']['x'] + int(np.round(0.4*regions['right_lung']['width']))
-    middle_patch_y = np.min([regions['right_lung']['y'],regions['left_lung']['y']]) + int(np.round(0.2*max_height_lungs))
-    middle_patch_width = (regions['left_lung']['x'] + int(np.round(0.6*regions['left_lung']['width']))) - middle_patch_x
+    max_height_lungs = np.max([regions['abs']['right_lung']['height'],regions['abs']['left_lung']['height']])
+    middle_patch_x = regions['abs']['right_lung']['x'] + int(np.round(0.4*regions['abs']['right_lung']['width']))
+    middle_patch_y = np.min([regions['abs']['right_lung']['y'],regions['abs']['left_lung']['y']]) + int(np.round(0.2*max_height_lungs))
+    middle_patch_width = (regions['abs']['left_lung']['x'] + int(np.round(0.6*regions['abs']['left_lung']['width']))) - middle_patch_x
     middle_patch_heigth = int(np.round(0.5*max_height_lungs))
-    regions['middle_patch'] = {
+    regions['abs']['middle_patch'] = {
         'x': middle_patch_x,
         'y': middle_patch_y,
         'width': middle_patch_width,
         'height': middle_patch_heigth
     }
+    ## Relative coordinates with respect to image shape
+    regions['rel']['middle_patch'] = abs2rel(regions['abs']['middle_patch'], img_AP_rotated)
     ## Draw on image
-    cv2.rectangle(img_AP_rotated_draw, (regions['middle_patch']['x'], regions['middle_patch']['y']), (regions['middle_patch']['x'] + regions['middle_patch']['width'], regions['middle_patch']['y'] + regions['middle_patch']['height']), (0, 153, 255), 6)
+    # cv2.rectangle(img_AP_rotated_draw, (regions['abs']['middle_patch']['x'], regions['abs']['middle_patch']['y']), (regions['abs']['middle_patch']['x'] + regions['abs']['middle_patch']['width'], regions['abs']['middle_patch']['y'] + regions['abs']['middle_patch']['height']), (0, 153, 255), 6)  # Absoulte coordinates
+    p0 = (int(np.round(regions['rel']['middle_patch']['x']*img_AP_rotated_draw.shape[1])), int(np.round(regions['rel']['middle_patch']['y']*img_AP_rotated_draw.shape[0])))
+    p1 = (int(np.round((regions['rel']['middle_patch']['x'] + regions['rel']['middle_patch']['width'])*img_AP_rotated_draw.shape[1])), int(np.round((regions['rel']['middle_patch']['y'] + regions['rel']['middle_patch']['height'])*img_AP_rotated_draw.shape[0])))
+    cv2.rectangle(img_AP_rotated_draw, p0, p1, (0, 153, 255), 6)  # Relative coordinates
     # 3. Thirds
     for side in ['right','left']:
-        regions[f"{side}_lung"]['thirds'] = {}
+        regions['abs'][f"{side}_lung"]['thirds'] = {}
+        regions['rel'][f"{side}_lung"]['thirds'] = {}
         for i in [0,1,2]:
-            height_third = int(np.round((1/3)*regions[f"{side}_lung"]['height']))
-            regions[f"{side}_lung"]['thirds'][i] = {
-                'x': regions[f"{side}_lung"]['x'],
-                'y': regions[f"{side}_lung"]['y']+height_third*i,
-                'width': regions[f"{side}_lung"]['width'],
+            height_third = int(np.round((1/3)*regions['abs'][f"{side}_lung"]['height']))
+            regions['abs'][f"{side}_lung"]['thirds'][i] = {
+                'x': regions['abs'][f"{side}_lung"]['x'],
+                'y': regions['abs'][f"{side}_lung"]['y']+height_third*i,
+                'width': regions['abs'][f"{side}_lung"]['width'],
                 'height': height_third
             }
-            cv2.rectangle(img_AP_rotated_draw, (regions[f"{side}_lung"]['thirds'][i]['x'], regions[f"{side}_lung"]['thirds'][i]['y']), (regions[f"{side}_lung"]['thirds'][i]['x'] + regions[f"{side}_lung"]['thirds'][i]['width'], regions[f"{side}_lung"]['thirds'][i]['y'] + regions[f"{side}_lung"]['thirds'][i]['height']), (204, 0, 204), 6)
-    
+            ## Relative coordinates with respect to image shape
+            regions['rel'][f"{side}_lung"]['thirds'][i] = abs2rel(regions['abs'][f"{side}_lung"]['thirds'][i], img_AP_rotated)
+            ## Draw on image
+            # cv2.rectangle(img_AP_rotated_draw, (regions['abs'][f"{side}_lung"]['thirds'][i]['x'], regions['abs'][f"{side}_lung"]['thirds'][i]['y']), (regions['abs'][f"{side}_lung"]['thirds'][i]['x'] + regions['abs'][f"{side}_lung"]['thirds'][i]['width'], regions['abs'][f"{side}_lung"]['thirds'][i]['y'] + regions['abs'][f"{side}_lung"]['thirds'][i]['height']), (204, 0, 204), 6)  # Absoulte coordinates
+            p0 = (int(np.round(regions['rel'][f"{side}_lung"]['thirds'][i]['x']*img_AP_rotated_draw.shape[1])), int(np.round(regions['rel'][f"{side}_lung"]['thirds'][i]['y']*img_AP_rotated_draw.shape[0])))
+            p1 = (int(np.round((regions['rel'][f"{side}_lung"]['thirds'][i]['x'] + regions['rel'][f"{side}_lung"]['thirds'][i]['width'])*img_AP_rotated_draw.shape[1])), int(np.round((regions['rel'][f"{side}_lung"]['thirds'][i]['y'] + regions['rel'][f"{side}_lung"]['thirds'][i]['height'])*img_AP_rotated_draw.shape[0])))
+            cv2.rectangle(img_AP_rotated_draw, p0, p1, (204, 0, 204), 6)  # Relative coordinates
+
     return regions, img_AP_rotated_draw
 
-def get_regions_LAT(img_LAT_rotated,rectangles_LAT_90deg,regions_AP):
+def get_regions_LAT(img_LAT_rotated,img_LAT_rotated_reg,rectangles_LAT_90deg,regions_AP):
     '''
     Originally, LAT images don't need to be rotated
     '''
     # Adapt input
-    regions = {}
-    regions['lungs'] = rectangles_LAT_90deg[0]
+    regions = {
+        'abs': {},
+        'rel': {}
+    }
+    regions['abs']['lungs'] = rectangles_LAT_90deg[0]
+    ## Relative coordinates with respect to image shape
+    regions['rel']['lungs'] = abs2rel(rectangles_LAT_90deg[0], img_LAT_rotated)
     # Img already rotated -> to RGB
-    img_LAT_rotated_draw = gray2rgb(img_LAT_rotated)
-    # 1. Get absolute charactersitics from AP Lungs
-    absolute_y_lungs_AP = np.min([regions_AP['right_lung']['y'],regions_AP['left_lung']['y']])
-    absolute_height_lungs_AP = np.max([regions_AP['right_lung']['height'],regions_AP['left_lung']['height']])
+    if(len(img_LAT_rotated.shape)==2):
+        img_LAT_rotated_draw = gray2rgb(img_LAT_rotated_reg)
+    else:
+        img_LAT_rotated_draw = img_LAT_rotated_reg.copy()
+    # 1. Get abs charactersitics from AP Lungs
+    abs_y_lungs_AP = np.min([regions_AP['abs']['right_lung']['y'],regions_AP['abs']['left_lung']['y']])
+    abs_height_lungs_AP = np.max([regions_AP['abs']['right_lung']['height'],regions_AP['abs']['left_lung']['height']])
     relative_vertical_coordinates_middle_patch_AP = {
-        'rel_y': (regions_AP['middle_patch']['y']-absolute_y_lungs_AP)/absolute_height_lungs_AP,
-        'rel_height': regions_AP['middle_patch']['height']/absolute_height_lungs_AP
+        'rel_y': (regions_AP['abs']['middle_patch']['y']-abs_y_lungs_AP)/abs_height_lungs_AP,
+        'rel_height': regions_AP['abs']['middle_patch']['height']/abs_height_lungs_AP
     }
     # 2. Middle patch
-    regions['middle_patch'] = {
+    regions['abs']['middle_patch'] = {
         'x': rectangles_LAT_90deg[0]['x']+int(np.round(rectangles_LAT_90deg[0]['width']*(1/4))),
         'y': rectangles_LAT_90deg[0]['y']+int(np.round(relative_vertical_coordinates_middle_patch_AP['rel_y']*rectangles_LAT_90deg[0]['height'])),
         'width': int(np.round(rectangles_LAT_90deg[0]['width']*(2/4))),
         'height': int(np.round(rectangles_LAT_90deg[0]['height']*relative_vertical_coordinates_middle_patch_AP['rel_height'])),
     }
+    ## Relative coordinates with respect to image shape
+    regions['rel']['middle_patch'] = abs2rel(regions['abs']['middle_patch'], img_LAT_rotated)
     ## Draw on image
-    cv2.rectangle(img_LAT_rotated_draw, (regions['middle_patch']['x'], regions['middle_patch']['y']), (regions['middle_patch']['x'] + regions['middle_patch']['width'], regions['middle_patch']['y'] + regions['middle_patch']['height']), (0, 153, 255), 6)
+    # cv2.rectangle(img_LAT_rotated_draw, (regions['abs']['middle_patch']['x'], regions['abs']['middle_patch']['y']), (regions['abs']['middle_patch']['x'] + regions['abs']['middle_patch']['width'], regions['abs']['middle_patch']['y'] + regions['abs']['middle_patch']['height']), (0, 153, 255), 6)  # Absolute coordinates
+    p0 = (int(np.round(regions['rel']['middle_patch']['x']*img_LAT_rotated_draw.shape[1])), int(np.round(regions['rel']['middle_patch']['y']*img_LAT_rotated_draw.shape[0])))
+    p1 = (int(np.round((regions['rel']['middle_patch']['x'] + regions['rel']['middle_patch']['width'])*img_LAT_rotated_draw.shape[1])), int(np.round((regions['rel']['middle_patch']['y'] + regions['rel']['middle_patch']['height'])*img_LAT_rotated_draw.shape[0])))
+    cv2.rectangle(img_LAT_rotated_draw, p0, p1, (0, 153, 255), 6)  # Relative coordinates
     # 3. Thirds
-    regions['lungs']['thirds'] = {}
+    regions['abs']['lungs']['thirds'] = {}
+    regions['rel']['lungs']['thirds'] = {}
     for i in [0,1,2]:
-        height_third = int(np.round((1/3)*regions['lungs']['height']))
-        regions['lungs']['thirds'][i] = {
-            'x': regions['lungs']['x'],
-            'y': regions['lungs']['y']+height_third*i,
-            'width': regions['lungs']['width'],
+        height_third = int(np.round((1/3)*regions['abs']['lungs']['height']))
+        regions['abs']['lungs']['thirds'][i] = {
+            'x': regions['abs']['lungs']['x'],
+            'y': regions['abs']['lungs']['y']+height_third*i,
+            'width': regions['abs']['lungs']['width'],
             'height': height_third
         }
-        cv2.rectangle(img_LAT_rotated_draw, (regions['lungs']['thirds'][i]['x'], regions['lungs']['thirds'][i]['y']), (regions['lungs']['thirds'][i]['x'] + regions['lungs']['thirds'][i]['width'], regions['lungs']['thirds'][i]['y'] + regions['lungs']['thirds'][i]['height']), (204, 0, 204), 6)
+        ## Relative coordinates with respect to image shape
+        regions['rel']['lungs']['thirds'][i] = abs2rel(regions['abs']['lungs']['thirds'][i], img_LAT_rotated)
+        ## Draw on image
+        # cv2.rectangle(img_LAT_rotated_draw, (regions['abs']['lungs']['thirds'][i]['x'], regions['abs']['lungs']['thirds'][i]['y']), (regions['abs']['lungs']['thirds'][i]['x'] + regions['abs']['lungs']['thirds'][i]['width'], regions['abs']['lungs']['thirds'][i]['y'] + regions['abs']['lungs']['thirds'][i]['height']), (204, 0, 204), 6)  # Absolute coordinates
+        p0 = (int(np.round(regions['rel']['lungs']['thirds'][i]['x']*img_LAT_rotated_draw.shape[1])), int(np.round(regions['rel']['lungs']['thirds'][i]['y']*img_LAT_rotated_draw.shape[0])))
+        p1 = (int(np.round((regions['rel']['lungs']['thirds'][i]['x'] + regions['rel']['lungs']['thirds'][i]['width'])*img_LAT_rotated_draw.shape[1])), int(np.round((regions['rel']['lungs']['thirds'][i]['y'] + regions['rel']['lungs']['thirds'][i]['height'])*img_LAT_rotated_draw.shape[0])))
+        cv2.rectangle(img_LAT_rotated_draw, p0, p1, (204, 0, 204), 6)  # Relative coordinates
     
     return regions, img_LAT_rotated_draw
 
-def get_regions_LAT_without_AP(img_LAT_rotated,rectangles_LAT_90deg):
+def get_regions_LAT_without_AP(img_LAT_rotated,img_LAT_rotated_reg,rectangles_LAT_90deg):
     '''
     Originally, LAT images don't need to be rotated
     '''
     # Adapt input
-    regions = {}
-    regions['lungs'] = rectangles_LAT_90deg[0]
+    regions = {
+        'abs': {},
+        'rel': {}
+    }
+    regions['abs']['lungs'] = rectangles_LAT_90deg[0]
     # Img already rotated -> to RGB
-    img_LAT_rotated_draw = gray2rgb(img_LAT_rotated)
+    if(len(img_LAT_rotated.shape)==2):
+        img_LAT_rotated_draw = gray2rgb(img_LAT_rotated_reg)
+    else:
+        img_LAT_rotated_draw = img_LAT_rotated_reg.copy()
     # 1. Get absolute charactersitics from AP Lungs
     relative_vertical_coordinates_middle_patch_AP = {
         'rel_y': 0.2,  # Manual - no correspondence between AP and LAT views
         'rel_height': 0.5  # Manual - no correspondence between AP and LAT views
     }
     # 2. Middle patch
-    regions['middle_patch'] = {
+    regions['abs']['middle_patch'] = {
         'x': rectangles_LAT_90deg[0]['x']+int(np.round(rectangles_LAT_90deg[0]['width']*(1/4))),
         'y': rectangles_LAT_90deg[0]['y']+int(np.round(relative_vertical_coordinates_middle_patch_AP['rel_y']*rectangles_LAT_90deg[0]['height'])),
         'width': int(np.round(rectangles_LAT_90deg[0]['width']*(2/4))),
         'height': int(np.round(rectangles_LAT_90deg[0]['height']*relative_vertical_coordinates_middle_patch_AP['rel_height'])),
     }
+    ## Relative coordinates with respect to image shape
+    regions['rel']['middle_patch'] = abs2rel(regions['abs']['middle_patch'], img_LAT_rotated)
     ## Draw on image
-    cv2.rectangle(img_LAT_rotated_draw, (regions['middle_patch']['x'], regions['middle_patch']['y']), (regions['middle_patch']['x'] + regions['middle_patch']['width'], regions['middle_patch']['y'] + regions['middle_patch']['height']), (0, 153, 255), 6)
+    # cv2.rectangle(img_LAT_rotated_draw, (regions['abs']['middle_patch']['x'], regions['abs']['middle_patch']['y']), (regions['abs']['middle_patch']['x'] + regions['abs']['middle_patch']['width'], regions['abs']['middle_patch']['y'] + regions['abs']['middle_patch']['height']), (0, 153, 255), 6)  # Absolute coordinates
+    p0 = (int(np.round(regions['rel']['middle_patch']['x']*img_LAT_rotated_draw.shape[1])), int(np.round(regions['rel']['middle_patch']['y']*img_LAT_rotated_draw.shape[0])))
+    p1 = (int(np.round((regions['rel']['middle_patch']['x'] + regions['rel']['middle_patch']['width'])*img_LAT_rotated_draw.shape[1])), int(np.round((regions['rel']['middle_patch']['y'] + regions['rel']['middle_patch']['height'])*img_LAT_rotated_draw.shape[0])))
+    cv2.rectangle(img_LAT_rotated_draw, p0, p1, (0, 153, 255), 6)  # Relative coordinates
     # 3. Thirds
-    regions['lungs']['thirds'] = {}
+    regions['abs']['lungs']['thirds'] = {}
+    regions['rel']['lungs']['thirds'] = {}
     for i in [0,1,2]:
-        height_third = int(np.round((1/3)*regions['lungs']['height']))
-        regions['lungs']['thirds'][i] = {
-            'x': regions['lungs']['x'],
-            'y': regions['lungs']['y']+height_third*i,
-            'width': regions['lungs']['width'],
+        height_third = int(np.round((1/3)*regions['abs']['lungs']['height']))
+        regions['abs']['lungs']['thirds'][i] = {
+            'x': regions['abs']['lungs']['x'],
+            'y': regions['abs']['lungs']['y']+height_third*i,
+            'width': regions['abs']['lungs']['width'],
             'height': height_third
         }
-        cv2.rectangle(img_LAT_rotated_draw, (regions['lungs']['thirds'][i]['x'], regions['lungs']['thirds'][i]['y']), (regions['lungs']['thirds'][i]['x'] + regions['lungs']['thirds'][i]['width'], regions['lungs']['thirds'][i]['y'] + regions['lungs']['thirds'][i]['height']), (204, 0, 204), 6)
-    
-    return regions, img_LAT_rotated_draw
+        ## Relative coordinates with respect to image shape
+        regions['rel']['lungs']['thirds'][i] = abs2rel(regions['abs']['lungs']['thirds'][i], img_LAT_rotated)
+        ## Draw on image
+        # cv2.rectangle(img_LAT_rotated_draw, (regions['abs']['lungs']['thirds'][i]['x'], regions['abs']['lungs']['thirds'][i]['y']), (regions['abs']['lungs']['thirds'][i]['x'] + regions['abs']['lungs']['thirds'][i]['width'], regions['abs']['lungs']['thirds'][i]['y'] + regions['abs']['lungs']['thirds'][i]['height']), (204, 0, 204), 6)  # Absolute coordinates
+        p0 = (int(np.round(regions['rel']['lungs']['thirds'][i]['x']*img_LAT_rotated_draw.shape[1])), int(np.round(regions['rel']['lungs']['thirds'][i]['y']*img_LAT_rotated_draw.shape[0])))
+        p1 = (int(np.round((regions['rel']['lungs']['thirds'][i]['x'] + regions['rel']['lungs']['thirds'][i]['width'])*img_LAT_rotated_draw.shape[1])), int(np.round((regions['rel']['lungs']['thirds'][i]['y'] + regions['rel']['lungs']['thirds'][i]['height'])*img_LAT_rotated_draw.shape[0])))
+        cv2.rectangle(img_LAT_rotated_draw, p0, p1, (204, 0, 204), 6)  # Relative coordinates
 
-def get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT):
+    return regions['abs'], img_LAT_rotated_draw
+
+def get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT,img_AP_reg,img_LAT_reg):
     '''Correspondence between AP and LAT views'''
     # 1. AP
     ## 1.1. Get initial schema
@@ -486,19 +567,20 @@ def get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT):
     ## 1.2. Rotate image and label
     theta_rotation_image_AP = np.mean([rectangles_AP[key]['rotation'] for key in rectangles_AP]) 
     img_AP_rotated = rotate_image(img_AP, -(theta_rotation_image_AP))
+    img_AP_rotated_reg = rotate_image(img_AP_reg, -(theta_rotation_image_AP))
     lbl_AP_rotated = rotate_image(lbl_AP, -(theta_rotation_image_AP))
     ## 1.3. Get vertical rectangles from rotated label
     rectangles_AP_90deg, rect_lbl_AP_90deg, out_lbl_AP_90deg = get_schema_AP_90deg(lbl_AP_rotated)
     ## 1.4. Get regions from AP image
-    regions_AP, img_AP_rotated_draw = get_regions_AP(img_AP_rotated,rectangles_AP_90deg)
+    regions_AP, img_AP_rotated_draw = get_regions_AP(img_AP_rotated,img_AP_rotated_reg,rectangles_AP_90deg)
     # 2. LAT
     ## 2.1. Get vertical rectangles from LAT label (not rotation needed)
     rectangles_LAT_90deg, rect_lbl_LAT_90deg, out_lbl_LAT_90deg = get_schema_LAT_90deg(lbl_LAT)
     ## 2.2. Get regions from LAT image
-    regions_LAT, img_LAT_rotated_draw = get_regions_LAT(img_LAT,rectangles_LAT_90deg,regions_AP)
+    regions_LAT, img_LAT_rotated_draw = get_regions_LAT(img_LAT,img_LAT_reg,rectangles_LAT_90deg,regions_AP)
     return regions_AP, img_AP_rotated_draw, regions_LAT, img_LAT_rotated_draw
 
-def get_regions_final_only_AP(img_AP,lbl_AP):
+def get_regions_final_only_AP(img_AP,lbl_AP,img_AP_reg):
     '''Warning: If only AP or LAT, results will have no correspondence between AP and LAT views'''
     # 1. AP
     ## 1.1. Get initial schema
@@ -506,18 +588,19 @@ def get_regions_final_only_AP(img_AP,lbl_AP):
     ## 1.2. Rotate image and label
     theta_rotation_image_AP = np.mean([rectangles_AP[key]['rotation'] for key in rectangles_AP]) 
     img_AP_rotated = rotate_image(img_AP, -(theta_rotation_image_AP))
+    img_AP_rotated_reg = rotate_image(img_AP_reg, -(theta_rotation_image_AP))
     lbl_AP_rotated = rotate_image(lbl_AP, -(theta_rotation_image_AP))
     ## 1.3. Get vertical rectangles from rotated label
     rectangles_AP_90deg, rect_lbl_AP_90deg, out_lbl_AP_90deg = get_schema_AP_90deg(lbl_AP_rotated)
     ## 1.4. Get regions from AP image
-    regions_AP, img_AP_rotated_draw = get_regions_AP(img_AP_rotated,rectangles_AP_90deg)
+    regions_AP, img_AP_rotated_draw = get_regions_AP(img_AP_rotated,img_AP_rotated_reg,rectangles_AP_90deg)
     return regions_AP, img_AP_rotated_draw
 
-def get_regions_final_only_LAT(img_LAT,lbl_LAT):
+def get_regions_final_only_LAT(img_LAT,lbl_LAT,img_LAT_reg):
     '''Warning: If only AP or LAT, results will have no correspondence between AP and LAT views'''
     # 2. LAT
     ## 2.1. Get vertical rectangles from LAT label (not rotation needed)
     rectangles_LAT_90deg, rect_lbl_LAT_90deg, out_lbl_LAT_90deg = get_schema_LAT_90deg(lbl_LAT)
     ## 2.2. Get regions from LAT image
-    regions_LAT, img_LAT_rotated_draw = get_regions_LAT_without_AP(img_LAT,rectangles_LAT_90deg)
+    regions_LAT, img_LAT_rotated_draw = get_regions_LAT_without_AP(img_LAT,img_LAT_reg,rectangles_LAT_90deg)
     return regions_LAT, img_LAT_rotated_draw

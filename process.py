@@ -129,7 +129,7 @@ def main():
         os.system(f"python detect.py --weights {YOLO_MODEL_PATH} --img {DIM} --conf {CONF} --source {IMG_DIR_FOR_YOLO} --project {PROJECT_OUT} --name {NAME} --exist-ok --max-det {MAX_DETECTIONS} --save-txt --save-conf")
     ## 2.1. Restore base path
     os.chdir(BASE_DIR)
-    ## Crop images with YOLOv5 predictions
+    ## Step 2.2. Crop images with YOLOv5 predictions
     err_idx = []
     for index, row in df.iterrows():
         # Info
@@ -140,7 +140,7 @@ def main():
         if('LAT' in views):
             img_path_LAT = row['img_path_LAT']
         # At this point, paths should be properly defined
-        # Step 2.0. Read image(s)
+        # Step 2.2.0. Read image(s)
         if(file_format_orig in ['jpg','png']):
             if('AP' in views):
                 img_AP = imread(img_path_AP)
@@ -151,7 +151,7 @@ def main():
                 img_AP = read_nifti(img_path_AP)
             if('LAT' in views):
                 img_LAT = read_nifti(img_path_LAT)
-        # Step 2.1. Crop & save
+        # Step 2.2.1. Crop & save
         for view in views:
             YOLO_IMG_PATH = os.path.join(paths['yolo_out'],view)
             YOLO_TXT_PATH = os.path.join(YOLO_IMG_PATH,'labels')
@@ -187,45 +187,59 @@ def main():
             if(file_format_orig in ['nifti']):
                 convert_2d_image_array_to_nifti(img_cropped, os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"])[:-5]))
                 convert_2d_image_array_to_nifti(img_cropped_clahe, os.path.join(paths['cropped_clahe'],view,os.path.basename(row[f"img_path_{view}"])[:-5]))   
-        ## Step 2.2. Remove those cases which reported errors
+        ## Step 2.2.2. Remove those cases which reported errors
         df = df.drop(err_idx)
     # Step 3. Segmentation with selected model (batch)
-    if(seg_model=='nnunet'):
+    if(seg_model in ['nnunet']):
         for view in views:
             if(apply_clahe):
                 adapt_images_nnunet(folder_in=os.path.join(paths['cropped_clahe'],view),folder_out=os.path.join(paths['nnunet_in'],view),file_format=file_format)
             else:
                 adapt_images_nnunet(folder_in=os.path.join(paths['cropped'],view),folder_out=os.path.join(paths['nnunet_in'],view),file_format=file_format)
-            INPUT_FOLDER = os.path.join(paths['nnunet_in'],view)
-            OUTPUT_FOLDER = os.path.join(paths['nnunet_out'],view)
+            INPUT_FOLDER = os.path.join(paths[f"{seg_model}_in"],view)
+            OUTPUT_FOLDER = os.path.join(paths[f"{seg_model}_out"],view)
             if(view=='AP'):
                 os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 136")
             if(view=='LAT'):
                 os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 135")
     elif(seg_model in ['medt','gatedaxialunet']):
         for view in views:
-            adapt_images_medt(folder_in=os.path.join(paths['yolo_out'],view),folder_out=os.path.join(paths['medt_in'],view),file_format=file_format,resize_dim=256)
+            if(apply_clahe):
+                adapt_images_medt(folder_in=os.path.join(paths['cropped_clahe'],view),folder_out=os.path.join(paths[f"{seg_model}_in"],view),file_format=file_format,resize_dim=256)
+            else:
+                adapt_images_medt(folder_in=os.path.join(paths['cropped'],view),folder_out=os.path.join(paths[f"{seg_model}_in"],view),file_format=file_format,resize_dim=256)
             os.chdir(MEDT_DIR)
             MODEL_DIR = paths['medt_models'][view][seg_model]
-            INPUT_FOLDER = os.path.join(paths[f"medt_in"],view)
+            INPUT_FOLDER = os.path.join(paths[f"{seg_model}_in"],view)
             OUTPUT_FOLDER = os.path.join(paths[f"{seg_model}_out"],view)
             maybe_make_dir(OUTPUT_FOLDER)
             DIM = 256
             maybe_remove_jupyter_checkpoints(INPUT_FOLDER)
-            os.system(f"python test.py --loaddirec {MODEL_DIR} --val_dataset {INPUT_FOLDER} --direc {OUTPUT_FOLDER} --batch_size 1 --modelname {seg_model} --imgsize {DIM} --gray ''no''")
+            if(seg_model in ['medt']):
+                MODEL_NAME = "MedT"
+            else:
+                MODEL_NAME = seg_model
+            os.system(f"python test.py --loaddirec {MODEL_DIR} --val_dataset {INPUT_FOLDER} --direc {OUTPUT_FOLDER} --batch_size 1 --modelname {MODEL_NAME} --imgsize {DIM} --gray ''no''")
             os.chdir(BASE_DIR)
     # Step 4. Schema over the images
     for index,row in df.iterrows():
         if('AP' in views and 'LAT' in views):
             # 4.1. Paths
-            img_path_AP = os.path.join(paths['cropped'],'AP',os.path.basename(row["img_path_AP"]))
-            img_path_LAT = os.path.join(paths['cropped'],'LAT',os.path.basename(row["img_path_LAT"]))
-            if(seg_model=='nnunet'):
-                lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.nii.gz')) if row['case_id'] in f]
-                lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.nii.gz')) if row['case_id'] in f]
+            ## 4.1.1. Input image paths
+            if(seg_model in ['nnunet']):
+                ext = '.nii.gz'
+                img_path_AP = os.path.join(paths[f"{seg_model}_in"],'AP',row['fname_AP_without_ext']+'_0000'+ext)
+                img_path_LAT = os.path.join(paths[f"{seg_model}_in"],'LAT',row['fname_LAT_without_ext']+'_0000'+ext)
             elif(seg_model in ['medt','gatedaxialunet']):
-                lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.png')) if row['case_id'] in f]
-                lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.png')) if row['case_id'] in f]
+                ext = '.png'
+                img_path_AP = os.path.join(paths[f"{seg_model}_in"],'AP','img',row['fname_AP_without_ext']+ext)
+                img_path_LAT = os.path.join(paths[f"{seg_model}_in"],'LAT','img',row['fname_LAT_without_ext']+ext)
+            ## 4.1.2. Paths for draw & region extraction
+            img_path_AP_reg = os.path.join(paths['cropped'],'AP',os.path.basename(row["img_path_AP"]))
+            img_path_LAT_reg = os.path.join(paths['cropped'],'LAT',os.path.basename(row["img_path_LAT"]))
+            ## 4.1.3. Predicted labels
+            lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*'+ext)) if row['case_id'] in f]
+            lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*'+ext)) if row['case_id'] in f]
             if(lbl_path_AP and len(lbl_path_AP)==1):
                 lbl_path_AP=lbl_path_AP[0]
             else:
@@ -235,20 +249,24 @@ def main():
             else:
                 raise Exception(f"LAT label for case {row['case_id']} could not be determined. Please check.") 
             # 4.2. Read data
-            ## 4.2.1. Read images
-            if(file_format_orig in ['jpg','png']):
-                img_AP = imread(img_path_AP)
-                img_LAT = imread(img_path_LAT)
-            elif(file_format_orig in ['nifti']):
+            ## 4.2.1. Read images & labels
+            if(seg_model in ['nnunet']):
                 img_AP = read_nifti(img_path_AP)
                 img_LAT = read_nifti(img_path_LAT)
-            # 4.2.2. Read labels
-            if(seg_model=='nnunet'):
                 lbl_AP = read_nifti(lbl_path_AP)
                 lbl_LAT = read_nifti(lbl_path_LAT)
-            elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
+            elif(seg_model in ['medt','gatedaxialunet']):
+                img_AP = imread(img_path_AP)
+                img_LAT = imread(img_path_LAT)
                 lbl_AP = imread(lbl_path_AP)
                 lbl_LAT = imread(lbl_path_LAT)
+            ## 4.2.2. Read images for regions
+            if(file_format_orig in ['jpg','png']):
+                img_AP_reg = imread(img_path_AP_reg)
+                img_LAT_reg = imread(img_path_LAT_reg)
+            elif(file_format_orig in ['nifti']):
+                img_AP_reg = read_nifti(img_path_AP_reg)
+                img_LAT_reg = read_nifti(img_path_LAT_reg)
             # 4.3. LAT orientation correction
             img_LAT_CNN = preprocess_with_clahe(img_LAT,img_shape=(256,256))
             img_LAT_CNN = np.expand_dims(img_LAT_CNN,axis=0)
@@ -265,7 +283,7 @@ def main():
                 imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','image_corrected.jpg'),img_LAT)
                 imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','label_corrected.jpg'),lbl_LAT)
             # 4.4. Get regions
-            regions_AP, img_AP_rotated_draw, regions_LAT, img_LAT_rotated_draw = get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT)
+            regions_AP, img_AP_rotated_draw, regions_LAT, img_LAT_rotated_draw = get_regions_final(img_AP,lbl_AP,img_LAT,lbl_LAT,img_AP_reg,img_LAT_reg)
             # 4.5. Save results
             maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'AP'))
             maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'LAT'))
@@ -281,8 +299,18 @@ def main():
             imsave(os.path.join(paths['regions'],row['case_id'],'LAT','img_LAT_regions.jpg'),img_LAT_rotated_draw)
         elif('AP' in views):
             # 4.1. Paths
-            img_path_AP = row['img_path_AP']
-            lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.nii.gz')) if row['case_id'] in f]
+            ## 4.1.1. Paths for region definition
+            if(seg_model=='nnunet'):
+                img_path_AP = os.path.join(paths[f"{seg_model}_in"],'AP',row['fname_AP_without_ext']+'.nii.gz')
+            elif(seg_model in ['medt','gatedaxialunet']):
+                img_path_AP = os.path.join(paths[f"{seg_model}_in"],'AP','img',row['fname_AP_without_ext']+'.png')
+            ## 4.1.2. Paths for draw & region extraction
+            img_path_AP_reg = os.path.join(paths['cropped'],'AP',os.path.basename(row["img_path_AP"]))
+            ## 4.1.3. Predicted labels
+            if(seg_model=='nnunet'):
+                lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.nii.gz')) if row['case_id'] in f]
+            elif(seg_model in ['medt','gatedaxialunet']):
+                lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.png')) if row['case_id'] in f]
             if(lbl_path_AP and len(lbl_path_AP)==1):
                 lbl_path_AP=lbl_path_AP[0]
             else:
@@ -299,7 +327,7 @@ def main():
             elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
                 lbl_AP = imread(lbl_path_AP)
             # 4.3. Get regions
-            regions_AP, img_AP_rotated_draw = get_regions_final_only_AP(img_AP,lbl_AP)
+            regions_AP, img_AP_rotated_draw = get_regions_final_only_AP(img_AP,lbl_AP,img_AP_reg)
             # 4.4. Save results
             maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'AP'))
             out_path = os.path.join(paths['regions'],row['case_id'],'AP','regions_AP.json')
@@ -308,8 +336,18 @@ def main():
             imsave(os.path.join(paths['regions'],row['case_id'],'AP','img_AP_regions.jpg'),img_AP_rotated_draw)
         elif('LAT' in views):
             # 4.1. Paths
-            img_path_LAT = row['img_path_LAT']
-            lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.nii.gz')) if row['case_id'] in f]
+            ## 4.1.1. Paths for region definition
+            if(seg_model=='nnunet'):
+                img_path_LAT = os.path.join(paths[f"{seg_model}_in"],'LAT',row['fname_LAT_without_ext']+'nii.gz')
+            elif(seg_model in ['medt','gatedaxialunet']):
+                img_path_LAT = os.path.join(paths[f"{seg_model}_in"],'LAT','img',row['fname_LAT_without_ext']+'.png')
+            ## 4.1.2. Paths for draw & region extraction
+            img_path_LAT_reg = os.path.join(paths['cropped'],'LAT',os.path.basename(row["img_path_LAT"]))
+            ## 4.1.3. Predicted labels
+            if(seg_model=='nnunet'):
+                lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.nii.gz')) if row['case_id'] in f]
+            elif(seg_model in ['medt','gatedaxialunet']):
+                lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.png')) if row['case_id'] in f]
             if(lbl_path_LAT and len(lbl_path_LAT)==1):
                 lbl_path_LAT=lbl_path_LAT[0]
             else:
@@ -341,7 +379,7 @@ def main():
                 imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','image_corrected.jpg'),img_LAT)
                 imsave(os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','label_corrected.jpg'),lbl_LAT)
             # 4.4. Get regions
-            regions_LAT, img_LAT_rotated_draw = get_regions_final_only_LAT(img_LAT,lbl_LAT)
+            regions_LAT, img_LAT_rotated_draw = get_regions_final_only_LAT(img_LAT,lbl_LAT,img_LAT_reg)
             # 4.5. Save results
             maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'LAT'))
             out_path = os.path.join(paths['regions'],row['case_id'],'LAT','regions_LAT.json')
@@ -349,6 +387,7 @@ def main():
                 json.dump(regions_LAT, fp, cls=NpEncoder)
             imsave(os.path.join(paths['regions'],row['case_id'],'LAT','img_LAT_regions.jpg'),img_LAT_rotated_draw)
     # Step 5. Crop patches and save
+
     # (Step 5. In uncropped version)
     ## Save results
     # Read img and label
