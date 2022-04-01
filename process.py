@@ -417,15 +417,15 @@ def main():
         print(f"Cropping regions in case {index}: {row['case_id']}")
         for view in views:
             # Load image to extract regions from
-            if(row['pred_orientation']==0):
-                img_path_reg = os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','image_corrected.jpg')
-            else:
-                img_path_reg = os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"]))
+            img_path_reg = os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"]))
             img_reg = imread(img_path_reg)  # For all input formats
             # Load JSON with relative coordinates
             json_path = os.path.join(paths['regions'],row['case_id'],view,f"regions_{view}.json")
             with open(json_path) as json_file:
                 regions = json.load(json_file)
+            # Apply flip to LAT image
+            if(view=='LAT' and row['pred_orientation']==0):
+                img_reg = cv2.flip(img_reg, 1)
             # Apply rotation to AP image
             if(view in ['AP']):
                 img_reg = rotate_image(img_reg, -(regions['image_rotation']))
