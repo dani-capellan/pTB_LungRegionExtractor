@@ -471,7 +471,7 @@ def get_regions_LAT(img_LAT_rotated,img_LAT_rotated_reg,rectangles_LAT_90deg,reg
     }
     # 2. Middle patch
     regions['abs']['middle_patch'] = {
-        'x': rectangles_LAT_90deg[0]['x']+int(np.round(rectangles_LAT_90deg[0]['width']*(1/4))),
+        'x': rectangles_LAT_90deg[0]['x']+int(np.round(rectangles_LAT_90deg[0]['width']*((1/4)+0.05))),  # 5% added - more posterior
         'y': rectangles_LAT_90deg[0]['y']+int(np.round(relative_vertical_coordinates_middle_patch_AP['rel_y']*rectangles_LAT_90deg[0]['height'])),
         'width': int(np.round(rectangles_LAT_90deg[0]['width']*(2/4))),
         'height': int(np.round(rectangles_LAT_90deg[0]['height']*relative_vertical_coordinates_middle_patch_AP['rel_height'])),

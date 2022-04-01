@@ -28,6 +28,18 @@ def main():
     BASE_DIR = os.getcwd()
     MEDT_DIR = os.path.join(os.getcwd(),'Medical-Transformer')
 
+    # File format definition
+    file_format = file_format_orig
+    if file_format_orig=='nifti': file_format='nii.gz'
+    file_format = '.'+file_format
+
+    # Run checks
+    if(not(os.path.isabs(output_folder))):
+        if ('./' in output_folder):
+            output_folder = output_folder.replace('./','')
+        output_folder = os.path.join(BASE_DIR,output_folder)
+    df, views = check_and_adapt_csv(csv_path,file_format)
+
     # Define paths
     paths = {
         'preprocessed': os.path.join(output_folder,'preprocessed'),
@@ -59,20 +71,12 @@ def main():
         },
         'lat_cnn_model': os.path.join(BASE_DIR,'lat_cnn_resnet_model','LAT_orientation_pTBResNetBAdam_saved-model-200-1.00_best.h5')
     }
-
-    # File format definition
-    file_format = file_format_orig
-    if file_format_orig=='nifti': file_format='nii.gz'
-    file_format = '.'+file_format
-
-    # Run checks
-    df, views = check_and_adapt_csv(csv_path,file_format)
     
     # Process
     # Steps 0-1: With a for loop
     for index, row in df.iterrows():
         # Info
-        print(f"Processing case {index}: {row['case_id']}")
+        print(f"Preprocessing case {index}: {row['case_id']}")
         # Get paths
         if('AP' in views):
             img_path_AP = row['img_path_AP']
@@ -109,11 +113,21 @@ def main():
             maybe_make_dir(os.path.join(paths['preprocessed'],view))
             maybe_make_dir(os.path.join(paths['yolo_in'],view))
             if(view=='AP'):
-                imsave(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_AP)),img_clahe)
-                imsave(os.path.join(paths['yolo_in'],view,os.path.basename(img_path_AP)),img_clahe_resize)
+                if(file_format_orig in ['jpg','png']):
+                    imsave(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_AP)),img_clahe)
+                    imsave(os.path.join(paths['yolo_in'],view,os.path.basename(img_path_AP)),img_clahe_resize)
+                elif(file_format_orig in ['nifti']):
+                    imsave(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_AP)[:-7]+'.jpg'),img_clahe)
+                    imsave(os.path.join(paths['yolo_in'],view,os.path.basename(img_path_AP)[:-7]+'.jpg'),img_clahe_resize)
             elif(view=='LAT'):
-                imsave(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_LAT)),img_clahe)
-                imsave(os.path.join(paths['yolo_in'],view,os.path.basename(img_path_LAT)),img_clahe_resize)
+                if(file_format_orig in ['jpg','png']):
+                    imsave(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_LAT)),img_clahe)
+                    imsave(os.path.join(paths['yolo_in'],view,os.path.basename(img_path_LAT)),img_clahe_resize)
+                elif(file_format_orig in ['nifti']):
+                    imsave(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_LAT)[:-7]+'.jpg'),img_clahe)
+                    imsave(os.path.join(paths['yolo_in'],view,os.path.basename(img_path_LAT)[:-7]+'.jpg'),img_clahe_resize)
+    # Checkpoint dataset.csv
+    df.to_csv(os.path.join(output_folder,'dataset.csv'))
     # Step 2. Crop with YOLO (batch)
     os.chdir(os.path.join(BASE_DIR,'yolov5'))
     for view in views:
@@ -180,14 +194,17 @@ def main():
             maybe_make_dir(os.path.join(paths['cropped'],view))
             maybe_make_dir(os.path.join(paths['cropped_clahe'],view))
             if(file_format_orig in ['jpg','png']):
-                imsave(os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"])),img_cropped)
-                imsave(os.path.join(paths['cropped_clahe'],view,os.path.basename(row[f"img_path_{view}"])),img_cropped_clahe)
+                imsave(os.path.join(paths['cropped'],view,row[f"fname_{view}_without_ext"]+file_format),img_cropped)
+                imsave(os.path.join(paths['cropped_clahe'],view,row[f"fname_{view}_without_ext"]+file_format),img_cropped_clahe)
             if(file_format_orig in ['nifti']):
-                convert_2d_image_array_to_nifti(img_cropped, os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"])[:-5]))
-                convert_2d_image_array_to_nifti(img_cropped_clahe, os.path.join(paths['cropped_clahe'],view,os.path.basename(row[f"img_path_{view}"])[:-5]))   
+                convert_2d_image_array_to_nifti_without_zeros(img_cropped, os.path.join(paths['cropped'],view,row[f"fname_{view}_without_ext"]))
+                convert_2d_image_array_to_nifti_without_zeros(img_cropped_clahe, os.path.join(paths['cropped_clahe'],view,row[f"fname_{view}_without_ext"]))
         ## Step 2.2.2. Remove those cases which reported errors
         df = df.drop(err_idx)
+    # Checkpoint dataset.csv
+    df.to_csv(os.path.join(output_folder,'dataset.csv'))
     # Step 3. Segmentation with selected model (batch)
+    print("Segmenting...")
     if(seg_model in ['nnunet']):
         for view in views:
             if(apply_clahe):
@@ -219,8 +236,12 @@ def main():
                 MODEL_NAME = seg_model
             os.system(f"python test.py --loaddirec {MODEL_DIR} --val_dataset {INPUT_FOLDER} --direc {OUTPUT_FOLDER} --batch_size 1 --modelname {MODEL_NAME} --imgsize {DIM} --gray ''no''")
             os.chdir(BASE_DIR)
+    # Checkpoint dataset.csv
+    df.to_csv(os.path.join(output_folder,'dataset.csv'))
     # Step 4. Schema over the images
     for index,row in df.iterrows():
+        # Info
+        print(f"Extracting regions from case {index}: {row['case_id']}")
         if('AP' in views and 'LAT' in views):
             # 4.1. Paths
             ## 4.1.1. Input image paths
@@ -272,8 +293,10 @@ def main():
             orientation = model.predict(img_LAT_CNN).flatten()[0]
             orientation_binary = (orientation>0.5).astype(int)
             print(f"Predicted Orientation: {orientation_binary}")
+            df.loc[index,'pred_orientation'] = orientation_binary
             if(orientation_binary==0):
                 img_LAT = cv2.flip(img_LAT, 1)
+                img_LAT_reg = cv2.flip(img_LAT_reg, 1)
                 lbl_LAT = cv2.flip(lbl_LAT, 1)
                 if(seg_model=='nnunet'):
                     lbl_LAT = cv2.normalize(lbl_LAT,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
@@ -368,8 +391,10 @@ def main():
             orientation = model.predict(img_LAT_CNN).flatten()[0]
             orientation_binary = (orientation>0.5).astype(int)
             print(f"Predicted Orientation: {orientation_binary}")
+            df.loc[index,'pred_orientation'] = orientation_binary
             if(orientation_binary==0):
                 img_LAT = cv2.flip(img_LAT, 1)
+                img_LAT_reg = cv2.flip(img_LAT_reg, 1)
                 lbl_LAT = cv2.flip(lbl_LAT, 1)
                 if(seg_model=='nnunet'):
                     lbl_LAT = cv2.normalize(lbl_LAT,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
@@ -384,16 +409,19 @@ def main():
             with open(out_path, 'w') as fp:
                 json.dump(regions_LAT, fp, cls=NpEncoder)
             imsave(os.path.join(paths['regions'],row['case_id'],'LAT','img_LAT_regions.jpg'),img_LAT_rotated_draw)
+    # Checkpoint dataset.csv
+    df.to_csv(os.path.join(output_folder,'dataset.csv'))
     # Step 5. Crop patches and save
     for index,row in df.iterrows():
-        print(f"{row['case_id']}: Cropping regions...")
+        # Info
+        print(f"Cropping regions in case {index}: {row['case_id']}")
         for view in views:
             # Load image to extract regions from
-            img_path_reg = os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"]))
-            if(file_format_orig in ['jpg','png']):
-                img_reg = imread(img_path_reg)
-            elif(file_format_orig in ['nifti']):
-                img_reg = read_nifti(img_path_reg)
+            if(row['pred_orientation']==0):
+                img_path_reg = os.path.join(paths['orientation_corrected'],row['case_id'],'LAT','image_corrected.jpg')
+            else:
+                img_path_reg = os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"]))
+            img_reg = imread(img_path_reg)  # For all input formats
             # Load JSON with relative coordinates
             json_path = os.path.join(paths['regions'],row['case_id'],view,f"regions_{view}.json")
             with open(json_path) as json_file:
@@ -424,9 +452,13 @@ def main():
                 # Save
                 out_path = os.path.join(paths['regions'],row['case_id'],view,reg,f"{reg}.jpg")
                 imsave(out_path,img)
-    # (Step 5. In uncropped version)
-    ## Save results
-    # Read img and label
+    # Checkpoint dataset.csv
+    df.to_csv(os.path.join(output_folder,'dataset.csv'))
+    # Step 6. Completion message
+    print("###################")
+    print(f"Finished. Your results have been saved in: {output_folder}")
+    print("###################")
+    print('\n')
 
 def check_and_adapt_csv(csv_path,file_format):
     AP_OK, LAT_OK = 2*(False,)
@@ -493,7 +525,7 @@ def adapt_images_nnunet(folder_in,folder_out,file_format):
             out_path_truncated = os.path.join(folder_out,output_filename_truncated)
             convert_2d_image_to_nifti(f, out_path_truncated)
         elif(file_format == '.nii.gz'):
-            out_path = os.path.join(folder_out,os.path.basename(f))
+            out_path = os.path.join(folder_out,os.path.basename(f)[:-7]+'_0000.nii.gz')
             copy(f,out_path)
 
 def adapt_images_medt(folder_in,folder_out,file_format,resize_dim=256):
