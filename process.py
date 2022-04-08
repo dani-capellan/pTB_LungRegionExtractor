@@ -257,8 +257,8 @@ def main():
             img_path_AP_reg = os.path.join(paths['cropped'],'AP',os.path.basename(row["img_path_AP"]))
             img_path_LAT_reg = os.path.join(paths['cropped'],'LAT',os.path.basename(row["img_path_LAT"]))
             ## 4.1.3. Predicted labels
-            lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*'+ext)) if row['case_id'] in f]
-            lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*'+ext)) if row['case_id'] in f]
+            lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*'+ext)) if str(row['case_id']) in f]
+            lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*'+ext)) if str(row['case_id']) in f]
             if(lbl_path_AP and len(lbl_path_AP)==1):
                 lbl_path_AP=lbl_path_AP[0]
             else:
@@ -418,7 +418,10 @@ def main():
         for view in views:
             # Load image to extract regions from
             img_path_reg = os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"]))
-            img_reg = imread(img_path_reg)  # For all input formats
+            if(seg_model in ['nnunet']):
+                img_reg = read_nifti(img_path_reg)
+            elif(seg_model in ['medt','gatedaxialunet']):
+                img_reg = imread(img_path_reg)
             # Load JSON with relative coordinates
             json_path = os.path.join(paths['regions'],row['case_id'],view,f"regions_{view}.json")
             with open(json_path) as json_file:
