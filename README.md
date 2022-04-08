@@ -18,7 +18,7 @@ Tuberculosis (TB) is still considered a leading cause of death and a substantial
 - [Installation](#installation)
 - [Usage](#usage)
     - [Minimal Working Example (MWE)](#minimal-working-example-mwe)
-    - [Useful Tips](#useful-tips)
+    - [Useful Tips and Considerations](#useful-tips-and-considerations)
 - [References](#references)
 
 ## Installation
