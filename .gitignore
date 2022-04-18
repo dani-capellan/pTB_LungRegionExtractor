@@ -32,3 +32,7 @@ sample_images/png/img_LAT/TB0_ITA2-0326-LAT-20130116.png
 sample_images/png/img_LAT/TB0_ITA2-0360-LAT-20130415.png
 sample_images/png/img_LAT/TB1_ITA2-0308-LAT-20121127.png
 sample_images/png/img_LAT/TB1_ITA2-0442-LAT-20121108.png
+models_download/pTB_nnunet_model_AP.zip
+models_download/pTB_nnunet_model_LAT.zip
+models_download/models.csv
+models_download/models.xlsx

@@ -29,9 +29,11 @@ We highly recommend creating a virtual environment for this task. Please follow 
 2. Install nnU-Net following the steps detailed in their documentation: https://github.com/MIC-DKFZ/nnUNet.
     - Install it as **integrative framework**.
     - It is important to follow all the steps appropiately. You will need to set a few of environment variables for it to work.
-3. Import the nnU-Net 2D model (.zip) by entering the following command:
-```nnUNet_install_pretrained_model_from_zip ./nnunet_model/pTB_nnunet_model_lungs.zip```
-4. Clone yolov5 repository. Follow steps in https://github.com/ultralytics/yolov5.
+3. Download pre-trained models from [here](docs/models.md). All weights except those of nnU-Net are already downloaded when cloning the repo. Please refer to the previous link to download nnU-Net weights.
+4. Install the nnU-Net 2D models (.zip) by entering the following commands:
+    - ```nnUNet_install_pretrained_model_from_zip ./nnunet_model/pTB_nnunet_model_lungs.zip```
+    - ```nnUNet_install_pretrained_model_from_zip ./nnunet_model/pTB_nnunet_model_lungs.zip```
+5. Clone yolov5 repository. Follow steps in https://github.com/ultralytics/yolov5.
 
 ## Usage
 
@@ -58,9 +60,11 @@ By default, preprocessing with CLAHE is applied to the input images. If CLAHE is
     `CUDA_VISIBLE_DEVICES=0 python process.py --csv dataset.csv --seg_model nnunet --output_folder ./RESULTS/mwe --fformat jpg`
 
 - In the CSV, use the same column names as in the sample. `PatientID` string should be part of AP/LAT image filenames. Example: `ITA2-0326` -> `TB0_ITA2-0326-AP-20130116.jpg`
+
 - DO NOT name the input files with:
-    - More than one underscore
-    - Only numbers
+    - More than one underscore.
+    - Only numbers.
+    
     Otherwise, the process may raise a exception. Suggested file naming: <COHORT IDENTIFIER>_<CASE_IDENTIFIER>.<FORMAT>. Example: COH_001.jpg
 
 ## References
