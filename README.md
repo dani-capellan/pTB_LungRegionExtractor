@@ -26,10 +26,16 @@ Tuberculosis (TB) is still considered a leading cause of death and a substantial
 
 We highly recommend creating a virtual environment for this task. Please follow the steps:
 
-1. Create a virtual environment using `environment.yml`: conda env create -f environment.yml.
+1. Clone this repository in your machine and create a virtual environment using `environment.yml`:
+    ```bash
+    git clone https://github.com/dani-capellan/pTB_LungRegionExtractor.git
+    cd pTB_LungRegionExtractor
+    conda env create -f environment.yml
+    ```
 2. Install nnU-Net following the steps detailed in their documentation: https://github.com/MIC-DKFZ/nnUNet.
     - Install it as **integrative framework**.
     - It is important to follow all the steps appropiately. You will need to set a few of environment variables for it to work.
+
 3. Download pre-trained models from [here](docs/models.md). All weights except those of nnU-Net are already downloaded when cloning the repo. Please refer to the previous link to download nnU-Net weights and place them in a folder called nnunet_models in the code directory (./nnunet_models).
 4. Install the nnU-Net 2D models (.zip) by entering the following commands:
 
