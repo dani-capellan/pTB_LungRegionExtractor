@@ -26,25 +26,31 @@ Tuberculosis (TB) is still considered a leading cause of death and a substantial
 
 We highly recommend creating a virtual environment for this task. Please follow the steps:
 
-1. Clone this repository in your machine and create a virtual environment using `environment.yml`:
+1. Clone this repository to your computer and create a virtual environment. We highly recommend using Anaconda, which should be installed before these next steps:
     ```bash
     git clone https://github.com/dani-capellan/pTB_LungRegionExtractor.git
     cd pTB_LungRegionExtractor
-    conda env create -f environment.yml
+    bash install_environment.sh
+    conda activate cxr
     ```
-2. Install nnU-Net following the steps detailed in their documentation: https://github.com/MIC-DKFZ/nnUNet.
+2. Install PyTorch and nnU-Net following the steps detailed in their documentation: https://github.com/MIC-DKFZ/nnUNet. Important:
     - Install it as **integrative framework**.
-    - It is important to follow all the steps appropiately. You will need to set a few of environment variables for it to work.
-
-3. Download pre-trained models from [here](docs/models.md). All weights except those of nnU-Net are already downloaded when cloning the repo. Please refer to the previous link to download nnU-Net weights and place them in a folder called nnunet_models in the code directory (./nnunet_models).
-4. Install the nnU-Net 2D models (.zip) by entering the following commands:
+    - It is important to follow all the installation steps appropiately. You will need to set some environment variables for it to work. All these steps are detailed in nnUNet's documentation.
+3. Copy nnUNetTrainerV2_50epochs.py to nnUNet's trainers directory:
+    ```bash
+    cp ./src/nnUNetTrainerV2_50epochs.py ./nnUNet/nnunet/training/network_training/nnUNetTrainerV2_50epochs.py
+    ```
+    **Note: Check that you're located in the root directory and not in any subfolder before executing this**
+4. Download pre-trained models from [here](docs/models.md). All weights except those of nnU-Net are already downloaded when cloning the repo. Please refer to the previous link to download nnU-Net weights and place them in a folder called nnunet_models in the code directory (./nnunet_models).
+5. Install the nnU-Net 2D models (.zip) by entering the following commands:
 
     ```bash
     nnUNet_install_pretrained_model_from_zip ./nnunet_models/pTB_nnunet_model_AP.zip
     nnUNet_install_pretrained_model_from_zip ./nnunet_models/pTB_nnunet_model_LAT.zip
     ```
+6. Clone yolov5 repository and install. Follow steps in https://github.com/ultralytics/yolov5.
 
-5. Clone yolov5 repository. Follow steps in https://github.com/ultralytics/yolov5.
+**Note: Make sure you have properly installed PyTorch with the highest CUDA version compatible with your drivers. Otherwise, the process may fail.**
 
 ## Usage
 
@@ -60,11 +66,13 @@ where:
 
 By default, preprocessing with CLAHE is applied to the input images. If CLAHE is not desired in the preprocessing step, add the flag `--no_clahe` at the end of the previous command.
 
+All results are saved in the output folder (`OUT_FOLDER`) specified in the abovementioned command. The resulting regions and crops are saved in `regions` subfolder.
+
 ### Minimal Working Example (MWE)
 
 The following command executes a minimal working example (MWE). Please check that everything works as expected.
 
-    python process.py --csv dataset.csv --seg_model nnunet --output_folder ./RESULTS/mwe --fformat jpg`
+    python process.py --csv dataset.csv --seg_model nnunet --output_folder ./RESULTS/mwe --fformat jpg
 
 ### Useful Tips and Considerations
 

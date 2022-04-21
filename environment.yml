@@ -19,15 +19,12 @@ dependencies:
   - scikit-learn
   - scipy
   - scikit-image
+  - dicom2nifti
+  - nibabel
+  - h5py
+  - seaborn
+  - simpleitk
+  - tqdm
   - pip:
-    - dicom2nifti
-    - h5py
     - hiddenlayer
-    - nibabel
-    - seaborn
-    - simpleitk
     - tensorflow-gpu
-    - torch
-    - torchaudio
-    - torchvision
-    - tqdm

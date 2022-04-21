@@ -214,9 +214,9 @@ def main():
             INPUT_FOLDER = os.path.join(paths[f"{seg_model}_in"],view)
             OUTPUT_FOLDER = os.path.join(paths[f"{seg_model}_out"],view)
             if(view=='AP'):
-                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 136 --disable_tta")
+                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2 -m 2d -t 136 --disable_tta")
             if(view=='LAT'):
-                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 135 --disable_tta")
+                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2 -m 2d -t 135 --disable_tta")
     elif(seg_model in ['medt','gatedaxialunet']):
         for view in views:
             if(apply_clahe):
@@ -418,10 +418,10 @@ def main():
         for view in views:
             # Load image to extract regions from
             img_path_reg = os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"]))
-            if(seg_model in ['nnunet']):
-                img_reg = read_nifti(img_path_reg)
-            elif(seg_model in ['medt','gatedaxialunet']):
+            if(file_format in ['.jpg','.png']):
                 img_reg = imread(img_path_reg)
+            elif(file_format in ['.nii.gz']):
+                img_reg = read_nifti(img_path_reg)
             # Load JSON with relative coordinates
             json_path = os.path.join(paths['regions'],row['case_id'],view,f"regions_{view}.json")
             with open(json_path) as json_file:
