@@ -1,5 +1,6 @@
 # Lung Region Extractor for Pediatric Chest X-ray Images
 Multi-view deep learning-based solution that extracts lung and mediastinal regions of interest from pediatric chest X-ray images where key Tuberculosis findings may be present.
+<a href="https://arxiv.org/abs/2301.13786"> See paper </a>
 ## Introduction
 Tuberculosis (TB) is still considered a leading cause of death and a substantial threat to global child health. Both TB infection and disease are curable using antibiotics. However, most children who die of TB are never diagnosed or treated. In clinical practice, experienced physicians assess TB by examining chest X-rays (CXR). Pediatric CXR has specific challenges compared to adult CXR, which makes TB diagnosis in children more difficult. Computer-aided diagnosis systems supported by Artificial Intelligence have shown performance comparable to experienced radiologist TB readings, which could ease mass TB screening and reduce clinical burden. We propose a multi-view deep learning-based solution which, by following a proposed template, aims to automatically regionalize and extract lung and mediastinal regions of interest from pediatric CXR images where key TB findings may be present. Experimental results have shown accurate region extraction, which can be used for further analysis to confirm TB finding presence and severity assessment.
 
@@ -100,6 +101,29 @@ The following command executes a minimal working example (MWE). Please check tha
 
 Please cite us if you are using this code!
 
-    Capellán-Martín D., Gómez-Valverde Juan J., Sanchez-Jacob R., Bermejo-Peláez D., García-Delgado L., López-Varela E., Ledesma-Carbayo María J. (2022) Deep learning-based lung segmentation and automatic regional template in chest X-ray images for pediatric tuberculosis.
+```
+@misc{CapellanTBTemplateCXR2023,
+  doi = {10.48550/ARXIV.2301.13786},
+  url = {https://arxiv.org/abs/2301.13786},
+  author = {Capellán-Martín, Daniel and Gómez-Valverde, Juan J. and Sanchez-Jacob, Ramon and Bermejo-Peláez, David and García-Delgado, Lara and López-Varela, Elisa and Ledesma-Carbayo, Maria J.},
+  title = {Deep learning-based lung segmentation and automatic regional template in chest X-ray images for pediatric tuberculosis},
+  publisher = {arXiv},
+  year = {2023},
+  copyright = {Creative Commons Attribution Non Commercial Share Alike 4.0 International}
+}
+```
 
-Note: Still in process of submission/acceptance. Please contact us if there is any issue, comment and/or suggestion.
+Note: This work has been accepted at the SPIE Medical Imaging 2023, Image Processing conference, 19-23 Feb 2023, San Diego, California, United States.
+    
+## License
+    
+Shield: [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
+
+This work is licensed under a
+[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
+
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-image]][cc-by-nc-sa]
+
+[cc-by-nc-sa]: http://creativecommons.org/licenses/by-nc-sa/4.0/
+[cc-by-nc-sa-image]: https://licensebuttons.net/l/by-nc-sa/4.0/88x31.png
+[cc-by-nc-sa-shield]: https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg
