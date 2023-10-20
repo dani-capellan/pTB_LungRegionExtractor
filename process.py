@@ -214,9 +214,9 @@ def main():
             INPUT_FOLDER = os.path.join(paths[f"{seg_model}_in"],view)
             OUTPUT_FOLDER = os.path.join(paths[f"{seg_model}_out"],view)
             if(view=='AP'):
-                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2 -m 2d -t 136 --disable_tta")
+                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 136 --disable_tta")
             if(view=='LAT'):
-                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2 -m 2d -t 135 --disable_tta")
+                os.system(f"nnUNet_predict -i {INPUT_FOLDER} -o {OUTPUT_FOLDER} -tr nnUNetTrainerV2_50epochs -m 2d -t 135 --disable_tta")
     elif(seg_model in ['medt','gatedaxialunet']):
         for view in views:
             if(apply_clahe):

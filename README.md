@@ -1,6 +1,8 @@
 # Lung Region Extractor for Pediatric Chest X-ray Images
 Multi-view deep learning-based solution that extracts lung and mediastinal regions of interest from pediatric chest X-ray images where key Tuberculosis findings may be present.
-<a href="https://arxiv.org/abs/2301.13786"> See paper </a>
+
+[arXiv](https://doi.org/10.48550/arXiv.2301.13786)  |  [Paper](https://doi.org/10.1117/12.2652626)
+
 ## Introduction
 Tuberculosis (TB) is still considered a leading cause of death and a substantial threat to global child health. Both TB infection and disease are curable using antibiotics. However, most children who die of TB are never diagnosed or treated. In clinical practice, experienced physicians assess TB by examining chest X-rays (CXR). Pediatric CXR has specific challenges compared to adult CXR, which makes TB diagnosis in children more difficult. Computer-aided diagnosis systems supported by Artificial Intelligence have shown performance comparable to experienced radiologist TB readings, which could ease mass TB screening and reduce clinical burden. We propose a multi-view deep learning-based solution which, by following a proposed template, aims to automatically regionalize and extract lung and mediastinal regions of interest from pediatric CXR images where key TB findings may be present. Experimental results have shown accurate region extraction, which can be used for further analysis to confirm TB finding presence and severity assessment.
 
@@ -28,31 +30,31 @@ Tuberculosis (TB) is still considered a leading cause of death and a substantial
 
 We highly recommend creating a virtual environment for this task. Please follow the steps:
 
-1. Clone this repository to your computer and create a virtual environment. We highly recommend using Anaconda, which should be installed before these next steps:
-    ```bash
-    git clone https://github.com/dani-capellan/pTB_LungRegionExtractor.git
-    cd pTB_LungRegionExtractor
+1. Run `install_environment.sh`:
+
+    ```
     bash install_environment.sh
-    conda activate cxr
     ```
-2. Install PyTorch and nnU-Net following the steps detailed in their documentation: https://github.com/MIC-DKFZ/nnUNet. Important:
-    - Install it as **integrative framework**.
-    - It is important to follow all the installation steps appropiately. You will need to set some environment variables for it to work. All these steps are detailed in nnUNet's documentation.
-3. Copy nnUNetTrainerV2_50epochs.py to nnUNet's trainers directory:
-    ```bash
-    cp ./src/nnUNetTrainerV2_50epochs.py ./nnUNet/nnunet/training/network_training/nnUNetTrainerV2_50epochs.py
-    ```
-    **Note: Check that you're located in the root directory and not in any subfolder before executing this**
-4. Download pre-trained models from [here](docs/models.md). All weights except those of nnU-Net are already downloaded when cloning the repo. Please refer to the previous link to download nnU-Net weights and place them in a folder called nnunet_models in the code directory (./nnunet_models).
-5. Install the nnU-Net 2D models (.zip) by entering the following commands:
+    
+    If using other paths or directories for installation, please modify `install_environment.sh` accordingly.
+
+    **Note: Check that you're located in the cloned directory and not in any subfolder before executing this**
+
+2. Copy nnUNetTrainerV2_50epochs.py to nnUNet's trainers directory. If using default paths, inside the cloned directory run:
 
     ```bash
-    nnUNet_install_pretrained_model_from_zip ./nnunet_models/pTB_nnunet_model_AP.zip
-    nnUNet_install_pretrained_model_from_zip ./nnunet_models/pTB_nnunet_model_LAT.zip
+    cp ./src/nnUNetTrainerV2_50epochs.py ~/nnUNet/nnunet/training/network_training/nnUNetTrainerV2_50epochs.py
     ```
-6. Clone yolov5 repository and install. Follow steps in https://github.com/ultralytics/yolov5.
+    **Note: Check that you're located in the cloned directory and not in any subfolder before executing this**
+3. (Optional) Download pre-trained models from [here](docs/models.md). All weights except those of nnU-Net are already downloaded when cloning the repo. Please refer to the previous link to download nnU-Net weights and place them in a folder called nnunet_weights in the code directory (./nnunet_weights).
+4. (Optional) Install the nnU-Net 2D models (.zip) by entering the following commands:
 
-**Note: Make sure you have properly installed PyTorch with the highest CUDA version compatible with your drivers. Otherwise, the process may fail.**
+    ```bash
+    nnUNet_install_pretrained_model_from_zip ./nnunet_weights/pTB_nnunet_model_AP.zip
+    nnUNet_install_pretrained_model_from_zip ./nnunet_weights/pTB_nnunet_model_LAT.zip
+    ```
+
+**Important: Please restart your bash/terminal after these steps, otherwise the environment variables may not be loaded properly.**
 
 ## Usage
 
@@ -100,17 +102,28 @@ The following command executes a minimal working example (MWE). Please check tha
 
 ## How to cite
 
-Please cite us if you are using this code!
+Please cite us if you are using our code and/or weights!
 
 ```
-@misc{CapellanTBTemplateCXR2023,
-  doi = {10.48550/ARXIV.2301.13786},
-  url = {https://arxiv.org/abs/2301.13786},
-  author = {Capellán-Martín, Daniel and Gómez-Valverde, Juan J. and Sanchez-Jacob, Ramon and Bermejo-Peláez, David and García-Delgado, Lara and López-Varela, Elisa and Ledesma-Carbayo, Maria J.},
-  title = {Deep learning-based lung segmentation and automatic regional template in chest X-ray images for pediatric tuberculosis},
-  publisher = {arXiv},
-  year = {2023},
-  copyright = {Creative Commons Attribution Non Commercial Share Alike 4.0 International}
+Daniel Capellán-Martín, Juan J. Gómez-Valverde, Ramon Sánchez-Jacob, David Bermejo-Peláez, Lara García-Delgado, Elisa López-Varela, Maria J. Ledesma-Carbayo, "Deep learning-based lung segmentation and automatic regional template in chest x-ray images for pediatric tuberculosis," Proc. SPIE 12465, Medical Imaging 2023: Computer-Aided Diagnosis, 124651W (7 April 2023); https://doi.org/10.1117/12.2652626
+```
+
+BibTeX format:
+
+```
+@inproceedings{10.1117/12.2652626,
+author = {Daniel Capell{\'a}n-Mart{\'i}n and Juan J. G{\'o}mez-Valverde and Ramon S{\'a}nchez-Jacob and David Bermejo-Pel{\'a}ez and Lara Garc{\'i}a-Delgado and Elisa L{\'o}pez-Varela and Maria J. Ledesma-Carbayo},
+title = {{Deep learning-based lung segmentation and automatic regional template in chest x-ray images for pediatric tuberculosis}},
+volume = {12465},
+booktitle = {Medical Imaging 2023: Computer-Aided Diagnosis},
+editor = {Khan M. Iftekharuddin and Weijie Chen},
+organization = {International Society for Optics and Photonics},
+publisher = {SPIE},
+pages = {124651W},
+keywords = {Tuberculosis, Lung, Pediatric chest X-ray, Medical imaging, Computer vision, Deep learning, Semantic segmentation},
+year = {2023},
+doi = {10.1117/12.2652626},
+URL = {https://doi.org/10.1117/12.2652626}
 }
 ```
 
@@ -119,6 +132,8 @@ Note: This work has been accepted at the SPIE Medical Imaging 2023, Image Proces
 ## License
     
 Shield: [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
+
+Images in `sample_images/` must not be used without the consent of the authors. They serve only as a minimal working example (MWE) for the code.
 
 This work is licensed under a
 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
