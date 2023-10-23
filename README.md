@@ -22,6 +22,7 @@ Tuberculosis (TB) is still considered a leading cause of death and a substantial
 - [Usage](#usage)
     - [Minimal Working Example (MWE)](#minimal-working-example-mwe)
     - [Useful Tips and Considerations](#useful-tips-and-considerations)
+- [Acknowledgements](#acknowledgements)
 - [References](#references)
 - [How to cite](#how-to-cite)
 - [License](#license)
@@ -93,6 +94,12 @@ The following command executes a minimal working example (MWE). Please check tha
     - Only numbers.
     
     Otherwise, the process may raise a exception. Suggested file naming: <COHORT IDENTIFIER>_<CASE_IDENTIFIER>.<FORMAT>. Example: COH_001.jpg
+
+## Acknowledgements
+
+This work was supported by H2020-MSCA-RISE-2018 INNOVA4TB (EU) project (ID 823854) and ADVANCETB Cost Action (EU) project (ID CA21164). DCM’s PhD fellowship was supported by Universidad Politécnica de Madrid.
+
+Thanks also to [@cerradamartos](https://github.com/cerradamartos) for testing the code and reporting errors.
 
 ## References
 
