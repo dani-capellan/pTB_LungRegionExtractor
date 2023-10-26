@@ -18,6 +18,8 @@ def main():
     parser.add_argument("--output_folder", "-o", action='store', default=None, help="[str] Output folder. Required.")
     parser.add_argument("--fformat", "-f", action='store', default=None, choices=['jpg','png','nifti'], help="[str] JPG, PNG, NIFTI (.nii.gz) formats allowed. Possible choices: ['jpg','png','nifti'].")
     parser.add_argument("--no_clahe", "-nc", action='store_false', default=True, required=False, help="If flag, CLAHE will not be applied.")
+    parser.add_argument("--yolo_conf_frontal", "-ycf", action='store', default=0.5, required=False, help="YOLO confidence threshold for frontal images.")
+    parser.add_argument("--yolo_conf_lateral", "-ycl", action='store', default=0.5, required=False, help="YOLO confidence threshold for lateral images.")
     args = parser.parse_args()
 
     csv_path = args.csv
@@ -74,9 +76,12 @@ def main():
     
     # Process
     # Steps 0-1: With a for loop
+    views_bkup = views.copy()
     for index, row in df.iterrows():
         # Info
         print(f"Preprocessing case {index}: {row['case_id']}")
+        # Restore views
+        views = views_bkup.copy()
         # Get paths
         if('AP' in views):
             img_path_AP = row['img_path_AP']
@@ -86,16 +91,45 @@ def main():
         # Step 0. Read image(s)
         if(file_format_orig in ['jpg','png']):
             if('AP' in views):
-                img_AP = imread(img_path_AP)
+                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a")) or img_path_AP==""):
+                    img_AP = imread(img_path_AP)
+                else:
+                    views.remove('AP')
             if('LAT' in views):
-                img_LAT = imread(img_path_LAT)
+                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a")) or img_path_LAT==""):
+                    img_LAT = imread(img_path_LAT)
+                else:
+                    views.remove('LAT')
         elif(file_format_orig in ['nifti']):
             if('AP' in views):
-                img_AP = read_nifti(img_path_AP)
+                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a")) or img_path_AP==""):
+                    img_AP = read_nifti(img_path_AP)
+                else:
+                    views.remove('AP')
             if('LAT' in views):
-                img_LAT = read_nifti(img_path_LAT)
+                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a")) or img_path_LAT==""):
+                    img_LAT = read_nifti(img_path_LAT)
+                else:
+                    views.remove('LAT')
         # Step 1. Preprocess & save
         for view in views:
+            # Check if image is already preprocessed
+            maybe_make_dir(os.path.join(paths['preprocessed'],view))
+            maybe_make_dir(os.path.join(paths['yolo_in'],view))
+            if(view=='AP'):
+                if(file_format_orig in ['jpg','png']):
+                    if check_existing_path(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_AP))) and check_existing_path(os.path.join(paths['yolo_in'],view,os.path.basename(img_path_AP))):
+                        continue
+                elif(file_format_orig in ['nifti']):
+                    if check_existing_path(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_AP)[:-7]+'.jpg')) and check_existing_path(os.path.join(paths['yolo_in'],view,os.path.basename(img_path_AP)[:-7]+'.jpg')):
+                        continue
+            elif(view=='LAT'):
+                if(file_format_orig in ['jpg','png']):
+                    if check_existing_path(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_LAT))) and check_existing_path(os.path.join(paths['yolo_in'],view,os.path.basename(img_path_LAT))):
+                        continue
+                elif(file_format_orig in ['nifti']):
+                    if check_existing_path(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_LAT)[:-7]+'.jpg')) and check_existing_path(os.path.join(paths['yolo_in'],view,os.path.basename(img_path_LAT)[:-7]+'.jpg')):
+                        continue
             if(view=='AP'):
                 img = img_AP.copy()
             elif(view=='LAT'):
@@ -110,8 +144,6 @@ def main():
                 # Only needed if CLAHE is applied
                 img_clahe = cv2.normalize(img_clahe,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
             img_clahe_resize = cv2.normalize(img_clahe_resize,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
-            maybe_make_dir(os.path.join(paths['preprocessed'],view))
-            maybe_make_dir(os.path.join(paths['yolo_in'],view))
             if(view=='AP'):
                 if(file_format_orig in ['jpg','png']):
                     imsave(os.path.join(paths['preprocessed'],view,os.path.basename(img_path_AP)),img_clahe)
@@ -131,9 +163,13 @@ def main():
     # Step 2. Crop with YOLO (batch)
     os.chdir(os.path.join(BASE_DIR,'yolov5'))
     for view in views:
+        if view == 'AP':
+            yolo_thresh = args.yolo_conf_frontal
+        elif view == 'LAT':
+            yolo_thresh = args.yolo_conf_lateral
         YOLO_MODEL_PATH = paths['yolo_models'][view]
         DIM = 512
-        CONF = 0.5
+        CONF = yolo_thresh
         IMG_DIR_FOR_YOLO = os.path.join(paths['yolo_in'],view)
         PROJECT_OUT = os.path.join(paths['yolo_out'])
         NAME = view
@@ -143,9 +179,12 @@ def main():
     os.chdir(BASE_DIR)
     ## Step 2.2. Crop images with YOLOv5 predictions
     err_idx = []
+    views_bkup = views.copy()
     for index, row in df.iterrows():
         # Info
         print(f"Cropping case {index}: {row['case_id']}")
+        # Restore views
+        views = views_bkup.copy()
         # Get paths
         if('AP' in views):
             img_path_AP = row['img_path_AP']
@@ -155,16 +194,41 @@ def main():
         # Step 2.2.0. Read image(s)
         if(file_format_orig in ['jpg','png']):
             if('AP' in views):
-                img_AP = imread(img_path_AP)
+                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a")) or img_path_AP==""):
+                    img_AP = imread(img_path_AP)
+                else:
+                    views.remove('AP')
             if('LAT' in views):
-                img_LAT = imread(img_path_LAT)
+                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a")) or img_path_LAT==""):
+                    img_LAT = imread(img_path_LAT)
+                else:
+                    views.remove('LAT')
         elif(file_format_orig in ['nifti']):
             if('AP' in views):
-                img_AP = read_nifti(img_path_AP)
+                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a")) or img_path_AP==""):
+                    img_AP = read_nifti(img_path_AP)
+                else:
+                    views.remove('AP')
             if('LAT' in views):
-                img_LAT = read_nifti(img_path_LAT)
+                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a")) or img_path_LAT==""):
+                    img_LAT = read_nifti(img_path_LAT)
+                else:
+                    views.remove('LAT')
         # Step 2.2.1. Crop & save
         for view in views:
+            # Check if image is already cropped
+            maybe_make_dir(os.path.join(paths['cropped'],view))
+            maybe_make_dir(os.path.join(paths['cropped_clahe'],view))
+            if(file_format_orig in ['jpg','png']):
+                if check_existing_path(os.path.join(paths['cropped'],view,row[f"fname_{view}_without_ext"]+file_format)):
+                    continue
+                if check_existing_path(os.path.join(paths['cropped_clahe'],view,row[f"fname_{view}_without_ext"]+file_format)):
+                    continue
+            if(file_format_orig in ['nifti']):
+                if check_existing_path(os.path.join(paths['cropped'],view,row[f"fname_{view}_without_ext"])):
+                    continue
+                if check_existing_path(os.path.join(paths['cropped_clahe'],view,row[f"fname_{view}_without_ext"])):
+                    continue
             YOLO_IMG_PATH = os.path.join(paths['yolo_out'],view)
             YOLO_TXT_PATH = os.path.join(YOLO_IMG_PATH,'labels')
             if(view=='AP'):
@@ -191,16 +255,14 @@ def main():
             img_cropped_clahe = adapt_2d_and_apply_clahe(img_cropped)
             img_cropped_clahe = cv2.normalize(img_cropped_clahe,None,0,255,cv2.NORM_MINMAX).astype(np.uint8)
             # Save images
-            maybe_make_dir(os.path.join(paths['cropped'],view))
-            maybe_make_dir(os.path.join(paths['cropped_clahe'],view))
             if(file_format_orig in ['jpg','png']):
                 imsave(os.path.join(paths['cropped'],view,row[f"fname_{view}_without_ext"]+file_format),img_cropped)
                 imsave(os.path.join(paths['cropped_clahe'],view,row[f"fname_{view}_without_ext"]+file_format),img_cropped_clahe)
             if(file_format_orig in ['nifti']):
                 convert_2d_image_array_to_nifti_without_zeros(img_cropped, os.path.join(paths['cropped'],view,row[f"fname_{view}_without_ext"]))
                 convert_2d_image_array_to_nifti_without_zeros(img_cropped_clahe, os.path.join(paths['cropped_clahe'],view,row[f"fname_{view}_without_ext"]))
-        ## Step 2.2.2. Remove those cases which reported errors
-        df = df.drop(err_idx)
+    ## Step 2.3 Remove those cases which reported errors
+    df = df.drop(err_idx)
     # Checkpoint dataset.csv
     df.to_csv(os.path.join(output_folder,'dataset.csv'))
     # Step 3. Segmentation with selected model (batch)
@@ -239,9 +301,21 @@ def main():
     # Checkpoint dataset.csv
     df.to_csv(os.path.join(output_folder,'dataset.csv'))
     # Step 4. Schema over the images
+    views_bkup = views.copy()
     for index,row in df.iterrows():
         # Info
         print(f"Extracting regions from case {index}: {row['case_id']}")
+        # Restore views
+        views = views_bkup.copy()
+        # Process views
+        if(row['img_path_AP'] in ['jpg','png']):
+            if('AP' in views):
+                if (str(row['img_path_AP']).endswith(("0", "None", "none", "n/a", "N/a")) or row['img_path_AP']==""):
+                    views.remove('AP')
+            if('LAT' in views):
+                if (str(row['img_path_LAT']).endswith(("0", "None", "none", "n/a", "N/a")) or row['img_path_LAT']==""):
+                    views.remove('LAT')
+        # Process
         if('AP' in views and 'LAT' in views):
             # 4.1. Paths
             ## 4.1.1. Input image paths
@@ -411,10 +485,21 @@ def main():
             imsave(os.path.join(paths['regions'],row['case_id'],'LAT','img_LAT_regions.jpg'),img_LAT_rotated_draw)
     # Checkpoint dataset.csv
     df.to_csv(os.path.join(output_folder,'dataset.csv'))
+    views_bkup = views.copy()
     # Step 5. Crop patches and save
     for index,row in df.iterrows():
         # Info
         print(f"Cropping regions in case {index}: {row['case_id']}")
+        # Restore views
+        views = views_bkup.copy()
+        # Process views
+        if(row['img_path_AP'] in ['jpg','png']):
+            if('AP' in views):
+                if (str(row['img_path_AP']).endswith(("0", "None", "none", "n/a", "N/a")) or row['img_path_AP']==""):
+                    views.remove('AP')
+            if('LAT' in views):
+                if (str(row['img_path_LAT']).endswith(("0", "None", "none", "n/a", "N/a")) or row['img_path_LAT']==""):
+                    views.remove('LAT')
         for view in views:
             # Load image to extract regions from
             img_path_reg = os.path.join(paths['cropped'],view,os.path.basename(row[f"img_path_{view}"]))
@@ -496,7 +581,12 @@ def check_and_adapt_csv(csv_path,file_format):
     for index,row in df.iterrows():
         for view in views:
             f = row[f"img_path_{view}"]
-            assert os.path.isfile(f), f"File {f} not found! Please check."
+            if (str(f).endswith(("0", "None", "none", "n/a", "N/a")) or str(f)==""):
+                continue
+            if os.path.isdir(os.path.dirname(f)):
+                assert os.path.isfile(f), f"File {f} not found! Please check."
+            else:
+                raise Exception(f"Folder {os.path.dirname(f)} does not exist. Please check paths")
             # Create another column with fname_without_ext per view. Check format consistency and file existance.
             if(file_format in ['.jpg','.png']):
                 ext = os.path.splitext(f)[-1]
@@ -511,6 +601,8 @@ def check_and_adapt_csv(csv_path,file_format):
     for index,row in df.iterrows():
         for view in views:
             f = row[f"img_path_{view}"]
+            if (str(f).endswith(("0", "None", "none", "n/a", "N/a")) or str(f)==""):
+                continue
             if(file_format in ['.jpg','.png']):
                 img = imread(f)
             elif(file_format in ['.nii.gz']):
@@ -550,6 +642,11 @@ def adapt_images_medt(folder_in,folder_out,file_format,resize_dim=256):
             out_path_labelcol = os.path.join(folder_out,'labelcol',os.path.splitext(os.path.basename(f))[0][:-4]+'.png')  # Not used by medt implementation, just to fullfil with code's requirements.
         imsave(out_path,img)
         imsave(out_path_labelcol,img)
+        
+def check_existing_path(path):
+    if(os.path.exists(path)):
+        print(f"{path} already exists.")
+        return True
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
