@@ -510,8 +510,8 @@ def get_regions_LAT_without_AP(img_LAT_rotated,img_LAT_rotated_reg,rectangles_LA
     '''
     # Adapt input
     regions = {
-        'abs': {},
-        'rel': {}
+        'abs': {'lungs': {'thirds': {}}, 'middle_patch': {}},
+        'rel': {'lungs': {'thirds': {}}, 'middle_patch': {}}
     }
     regions['abs']['lungs'] = rectangles_LAT_90deg[0]
     # Img already rotated -> to RGB
