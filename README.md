@@ -29,6 +29,14 @@ Tuberculosis (TB) is still considered a leading cause of death and a substantial
 
 ## Installation
 
+First, clone the repository using the following command, then change the directory to the cloned new folder:
+
+```bash
+git clone https://github.com/dani-capellan/pTB_LungRegionExtractor.git
+cd pTB_LungRegionExtractor
+```
+
+
 We highly recommend creating a virtual environment for this task. Please follow the steps:
 
 1. Run `install_environment.sh`:

@@ -91,23 +91,23 @@ def main():
         # Step 0. Read image(s)
         if(file_format_orig in ['jpg','png']):
             if('AP' in views):
-                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or img_path_AP==""):
+                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or img_path_AP==""):
                     img_AP = imread(img_path_AP)
                 else:
                     views.remove('AP')
             if('LAT' in views):
-                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or img_path_LAT==""):
+                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or img_path_LAT==""):
                     img_LAT = imread(img_path_LAT)
                 else:
                     views.remove('LAT')
         elif(file_format_orig in ['nifti']):
             if('AP' in views):
-                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or img_path_AP==""):
+                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or img_path_AP==""):
                     img_AP = read_nifti(img_path_AP)
                 else:
                     views.remove('AP')
             if('LAT' in views):
-                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or img_path_LAT==""):
+                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or img_path_LAT==""):
                     img_LAT = read_nifti(img_path_LAT)
                 else:
                     views.remove('LAT')
@@ -194,23 +194,23 @@ def main():
         # Step 2.2.0. Read image(s)
         if(file_format_orig in ['jpg','png']):
             if('AP' in views):
-                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or img_path_AP==""):
+                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or img_path_AP==""):
                     img_AP = imread(img_path_AP)
                 else:
                     views.remove('AP')
             if('LAT' in views):
-                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or img_path_LAT==""):
+                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or img_path_LAT==""):
                     img_LAT = imread(img_path_LAT)
                 else:
                     views.remove('LAT')
         elif(file_format_orig in ['nifti']):
             if('AP' in views):
-                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or img_path_AP==""):
+                if not (str(img_path_AP).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or img_path_AP==""):
                     img_AP = read_nifti(img_path_AP)
                 else:
                     views.remove('AP')
             if('LAT' in views):
-                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or img_path_LAT==""):
+                if not (str(img_path_LAT).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or img_path_LAT==""):
                     img_LAT = read_nifti(img_path_LAT)
                 else:
                     views.remove('LAT')
@@ -309,10 +309,10 @@ def main():
         views = views_bkup.copy()
         # Process views
         if('AP' in views):
-            if (str(row['img_path_AP']).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or row['img_path_AP']==""):
+            if (str(row['img_path_AP']).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or row['img_path_AP']==""):
                 views.remove('AP')
         if('LAT' in views):
-            if (str(row['img_path_LAT']).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or row['img_path_LAT']==""):
+            if (str(row['img_path_LAT']).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or row['img_path_LAT']==""):
                 views.remove('LAT')
         # Process
         if('AP' in views and 'LAT' in views):
@@ -496,10 +496,10 @@ def main():
         # Process views
         if(row['img_path_AP'].endswith(('jpg','png'))):
             if('AP' in views):
-                if (str(row['img_path_AP']).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or row['img_path_AP']==""):
+                if (str(row['img_path_AP']).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or row['img_path_AP']==""):
                     views.remove('AP')
             if('LAT' in views):
-                if (str(row['img_path_LAT']).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or row['img_path_LAT']==""):
+                if (str(row['img_path_LAT']).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or row['img_path_LAT']==""):
                     views.remove('LAT')
         for view in views:
             # Load image to extract regions from
@@ -582,7 +582,7 @@ def check_and_adapt_csv(csv_path,file_format):
     for index,row in df.iterrows():
         for view in views:
             f = row[f"img_path_{view}"]
-            if (str(f).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or str(f)==""):
+            if (str(f).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or str(f)==""):
                 continue
             if os.path.isdir(os.path.dirname(f)):
                 assert os.path.isfile(f), f"File {f} not found! Please check."
@@ -602,7 +602,7 @@ def check_and_adapt_csv(csv_path,file_format):
     for index,row in df.iterrows():
         for view in views:
             f = row[f"img_path_{view}"]
-            if (str(f).endswith(("0", "None", "none", "n/a", "N/a", "nan")) or str(f)==""):
+            if (str(f).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or str(f)==""):
                 continue
             if(file_format in ['.jpg','.png']):
                 img = imread(f)
