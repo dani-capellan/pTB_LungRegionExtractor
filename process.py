@@ -60,7 +60,6 @@ def main():
         'regions': os.path.join(output_folder, 'regions'), 
         'yolo_models': {
             'AP': os.path.join(BASE_DIR,'yolov5_weights','AP_pTB_yolov5_weights_v12112021.pt'),
-            # 'LAT': os.path.join(BASE_DIR,'yolov5_weights','LAT_pTB_yolov5_weights_v09022022.pt')
             'LAT': os.path.join(BASE_DIR,'yolov5_weights','LAT_pTB_yolov5_weights_v24102023.pt')
         },
         'medt_models':{
