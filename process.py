@@ -40,6 +40,7 @@ def main():
         if ('./' in output_folder):
             output_folder = output_folder.replace('./','')
         output_folder = os.path.join(BASE_DIR,output_folder)
+        maybe_make_dir(output_folder)
     df, views = check_and_adapt_csv(csv_path,file_format)
 
     # Define paths
@@ -59,7 +60,8 @@ def main():
         'regions': os.path.join(output_folder, 'regions'), 
         'yolo_models': {
             'AP': os.path.join(BASE_DIR,'yolov5_weights','AP_pTB_yolov5_weights_v12112021.pt'),
-            'LAT': os.path.join(BASE_DIR,'yolov5_weights','LAT_pTB_yolov5_weights_v09022022.pt')
+            # 'LAT': os.path.join(BASE_DIR,'yolov5_weights','LAT_pTB_yolov5_weights_v09022022.pt')
+            'LAT': os.path.join(BASE_DIR,'yolov5_weights','LAT_pTB_yolov5_weights_v24102023.pt')
         },
         'medt_models':{
             'AP':{
