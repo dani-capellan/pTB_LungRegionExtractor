@@ -63,7 +63,7 @@ We highly recommend creating a virtual environment for this task. Please follow 
     nnUNet_install_pretrained_model_from_zip ./nnunet_weights/pTB_nnunet_model_LAT.zip
     ```
 
-**Important: Please restart your bash/terminal after these steps, otherwise the environment variables may not be loaded properly.**
+**Important: Please restart your bash/terminal after these steps, otherwise the environment variables may not be loaded properly. For the Minimal Working Example (MWE) to work, steps 3 and 4 are required.**
 
 ## Usage
 
