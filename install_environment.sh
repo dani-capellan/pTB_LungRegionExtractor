@@ -1,22 +1,28 @@
+# Get current dir
+CURR_DIR=$(pwd)
+
 # Script to create virtual environment with Anaconda and install needed packages
 conda create --name cxr python=3.9 -y
 source ~/anaconda3/etc/profile.d/conda.sh
-conda activate cxr
+source ~/miniconda3/bin/activate cxr
 conda install pip -y
-pip install -r requirements.txt
 
 # Install yolov5
 git clone https://github.com/ultralytics/yolov5
 cd yolov5
+git reset --hard 5cdad8922c83b0ed49a0173cd1a8b0739acbb336
+source ~/miniconda3/bin/activate cxr
 pip install -r requirements.txt
 
 # # Change directory
 cd ~
 
 # Install nnUNetv1
-git clone https://github.com/MIC-DKFZ/nnUNet.git
+git clone https://github.com/MIC-DKFZ/nnUNet.git 
 cd nnUNet
+git reset --hard 4f2ffabe751977ee66348560c8e99102e8553195
 git checkout nnunetv1
+source ~/miniconda3/bin/activate cxr
 pip install -e .
 
 # nnUNetv1 paths
@@ -40,3 +46,10 @@ echo "export RESULTS_FOLDER=$RESULTS_FOLDER" >> ~/.bashrc
 
 # Execute .bashrc
 source ~/.bashrc
+
+# CD
+cd $CURR_DIR
+
+# Install dependencies
+source ~/miniconda3/bin/activate cxr
+pip install -r requirements.txt

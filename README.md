@@ -95,19 +95,19 @@ The following command executes a minimal working example (MWE). Please check tha
     CUDA_VISIBLE_DEVICES=0 python process.py --csv dataset.csv --seg_model nnunet --output_folder ./RESULTS/mwe --fformat jpg
     ```
 
-- In the CSV, use the same column names as in the sample. `PatientID` string should be part of AP/LAT image filenames. Example: `ITA2-0326` -> `TB0_ITA2-0326-AP-20130116.jpg`
+- In the CSV, use the same column names as in the sample. `PatientID` string should be part of AP/LAT image filenames, followed by the CXR view/projection. Example: `ITA2-0326` -> `COH_ITA2-0326-AP-XXXX.jpg`
 
 - DO NOT name the input files with:
     - More than one underscore.
     - Only numbers.
     
-    Otherwise, the process may raise a exception. Suggested file naming: <COHORT IDENTIFIER>_<CASE_IDENTIFIER>.<FORMAT>. Example: COH_001.jpg
+    Otherwise, the process may raise a exception. Suggested file naming: <COHORT IDENTIFIER>_<CASE_IDENTIFIER>-<CXR_VIEW>.<FORMAT>. Example: COH_001-AP.jpg
 
 ## Acknowledgements
 
 This work was supported by H2020-MSCA-RISE-2018 INNOVA4TB (EU) project (ID 823854) and ADVANCETB Cost Action (EU) project (ID CA21164). DCM’s PhD fellowship was supported by Universidad Politécnica de Madrid.
 
-Thanks also to [@cerradamartos](https://github.com/cerradamartos) for testing the code and reporting errors.
+Thanks also to [@cerradamartos](https://github.com/cerradamartos) and [@Nerio-Messino](https://github.com/Nerio-Messino) for testing the code and reporting errors.
 
 ## References
 

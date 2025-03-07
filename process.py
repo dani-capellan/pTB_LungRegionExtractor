@@ -10,6 +10,7 @@ from utils import *
 from functions_main import *
 import argparse
 import tensorflow as tf
+import numpy as np
 
 def main():
     parser = argparse.ArgumentParser(description='Process AP and/or LAT CXR pediatric images. img_AP and img_LAT folders should contain analogous images. If only AP or LAT images are introduced (not both), no matching between views will be done.')
@@ -175,7 +176,10 @@ def main():
         PROJECT_OUT = os.path.join(paths['yolo_out'])
         NAME = view
         MAX_DETECTIONS = 1
-        os.system(f"python detect.py --weights {YOLO_MODEL_PATH} --img {DIM} --conf {CONF} --source {IMG_DIR_FOR_YOLO} --project {PROJECT_OUT} --name {NAME} --exist-ok --max-det {MAX_DETECTIONS} --save-txt --save-conf")
+        if not os.path.exists(os.path.join(PROJECT_OUT,NAME)):
+            os.system(f"python detect.py --weights {YOLO_MODEL_PATH} --img {DIM} --conf {CONF} --source {IMG_DIR_FOR_YOLO} --project {PROJECT_OUT} --name {NAME} --exist-ok --max-det {MAX_DETECTIONS} --save-txt --save-conf")
+        else:
+            print(f"YOLO predictions for view {view} already exist. Skipping.")
     ## 2.1. Restore base path
     os.chdir(BASE_DIR)
     ## Step 2.2. Crop images with YOLOv5 predictions
@@ -331,16 +335,16 @@ def main():
             img_path_AP_reg = os.path.join(paths['cropped'],'AP',os.path.basename(row["img_path_AP"]))
             img_path_LAT_reg = os.path.join(paths['cropped'],'LAT',os.path.basename(row["img_path_LAT"]))
             ## 4.1.3. Predicted labels
-            lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*'+ext)) if str(row['case_id']) in f]
-            lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*'+ext)) if str(row['case_id']) in f]
+            lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*'+ext)) if str(row['case_id'])+"-" in f]
+            lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*'+ext)) if str(row['case_id'])+"-" in f]
             if(lbl_path_AP and len(lbl_path_AP)==1):
                 lbl_path_AP=lbl_path_AP[0]
             else:
-                raise Exception(f"AP label for case {row['case_id']} could not be determined. Please check.")
+                raise Exception(f"AP label for case {row['case_id']} could not be determined. Please check before moving forward.")
             if(lbl_path_LAT and len(lbl_path_LAT)==1):
                 lbl_path_LAT=lbl_path_LAT[0]
             else:
-                raise Exception(f"LAT label for case {row['case_id']} could not be determined. Please check.") 
+                raise Exception(f"LAT label for case {row['case_id']} could not be determined. Please check before moving forward.") 
             # 4.2. Read data
             ## 4.2.1. Read images & labels
             if(seg_model in ['nnunet']):
@@ -386,11 +390,13 @@ def main():
             out_path = os.path.join(paths['regions'],row['case_id'],'AP','regions_AP.json')
             with open(out_path, 'w') as fp:
                 json.dump(regions_AP, fp, cls=NpEncoder)
+            img_AP_rotated_draw = ensure_image_format(img_AP_rotated_draw)
             imsave(os.path.join(paths['regions'],row['case_id'],'AP','img_AP_regions.jpg'),img_AP_rotated_draw)
             ## LAT - Save
             out_path = os.path.join(paths['regions'],row['case_id'],'LAT','regions_LAT.json')
             with open(out_path, 'w') as fp:
                 json.dump(regions_LAT, fp, cls=NpEncoder)
+            img_LAT_rotated_draw = ensure_image_format(img_LAT_rotated_draw)
             imsave(os.path.join(paths['regions'],row['case_id'],'LAT','img_LAT_regions.jpg'),img_LAT_rotated_draw)
         elif('AP' in views):
             # 4.1. Paths
@@ -403,13 +409,13 @@ def main():
             img_path_AP_reg = os.path.join(paths['cropped'],'AP',os.path.basename(row["img_path_AP"]))
             ## 4.1.3. Predicted labels
             if(seg_model=='nnunet'):
-                lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.nii.gz')) if row['case_id'] in f]
+                lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.nii.gz')) if row['case_id']+"-" in f]
             elif(seg_model in ['medt','gatedaxialunet']):
-                lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.png')) if row['case_id'] in f]
+                lbl_path_AP = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'AP','*.png')) if row['case_id']+"-" in f]
             if(lbl_path_AP and len(lbl_path_AP)==1):
                 lbl_path_AP=lbl_path_AP[0]
             else:
-                raise Exception(f"AP label for case {row['case_id']} could not be determined. Please check.")
+                raise Exception(f"AP label for case {row['case_id']} could not be determined. Please check before moving forward.")
             # 4.2. Read images
             ## 4.2.1. Read images
             if(seg_model in ['medt','gatedaxialunet']):
@@ -423,12 +429,17 @@ def main():
             elif(seg_model=='medt' or seg_model=='gatedaxialunet'):
                 lbl_AP = imread(lbl_path_AP)
             # 4.3. Get regions
-            regions_AP, img_AP_rotated_draw = get_regions_final_only_AP(img_AP,lbl_AP,img_AP_reg)
+            try:
+                regions_AP, img_AP_rotated_draw = get_regions_final_only_AP(img_AP,lbl_AP,img_AP_reg)
+            except Exception as e:
+                print(f"Error in case {row['case_id']}. Skipping. Error: {e}")
+                continue
             # 4.4. Save results
             maybe_make_dir(os.path.join(paths['regions'],row['case_id'],'AP'))
             out_path = os.path.join(paths['regions'],row['case_id'],'AP','regions_AP.json')
             with open(out_path, 'w') as fp:
                 json.dump(regions_AP, fp, cls=NpEncoder)
+            img_AP_rotated_draw = ensure_image_format(img_AP_rotated_draw)
             imsave(os.path.join(paths['regions'],row['case_id'],'AP','img_AP_regions.jpg'),img_AP_rotated_draw)
         elif('LAT' in views):
             # 4.1. Paths
@@ -441,13 +452,13 @@ def main():
             img_path_LAT_reg = os.path.join(paths['cropped'],'LAT',os.path.basename(row["img_path_LAT"]))
             ## 4.1.3. Predicted labels
             if(seg_model=='nnunet'):
-                lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.nii.gz')) if row['case_id'] in f]
+                lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.nii.gz')) if row['case_id']+"-" in f]
             elif(seg_model in ['medt','gatedaxialunet']):
-                lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.png')) if row['case_id'] in f]
+                lbl_path_LAT = [f for f in glob.glob(os.path.join(paths[f"{seg_model}_out"],'LAT','*.png')) if row['case_id']+"-" in f]
             if(lbl_path_LAT and len(lbl_path_LAT)==1):
                 lbl_path_LAT=lbl_path_LAT[0]
             else:
-                raise Exception(f"LAT label for case {row['case_id']} could not be determined. Please check.") 
+                raise Exception(f"LAT label for case {row['case_id']} could not be determined. Please check before moving forward.") 
             # 4.2. Read images
             ## 4.2.1. Read images
             if(seg_model in ['medt','gatedaxialunet']):
@@ -484,6 +495,7 @@ def main():
             out_path = os.path.join(paths['regions'],row['case_id'],'LAT','regions_LAT.json')
             with open(out_path, 'w') as fp:
                 json.dump(regions_LAT, fp, cls=NpEncoder)
+            img_LAT_rotated_draw = ensure_image_format(img_LAT_rotated_draw)
             imsave(os.path.join(paths['regions'],row['case_id'],'LAT','img_LAT_regions.jpg'),img_LAT_rotated_draw)
     # Checkpoint dataset.csv
     df.to_csv(os.path.join(output_folder,'dataset.csv'))
@@ -511,8 +523,12 @@ def main():
                 img_reg = read_nifti(img_path_reg)
             # Load JSON with relative coordinates
             json_path = os.path.join(paths['regions'],row['case_id'],view,f"regions_{view}.json")
-            with open(json_path) as json_file:
-                regions = json.load(json_file)
+            if os.path.exists(json_path):
+                with open(json_path) as json_file:
+                    regions = json.load(json_file)
+            else:
+                print(f"Regions JSON for case {row['case_id']} and view {view} in path {json_path} not found. Skipping.")
+                continue
             # Apply flip to LAT image
             if(view=='LAT' and row['pred_orientation']==0):
                 img_reg = cv2.flip(img_reg, 1)
@@ -560,9 +576,14 @@ def check_and_adapt_csv(csv_path,file_format):
         except:
             print("Please check CSV, maybe bad formatted.")
         if(len(df)<1):
-            raise Exception("Empty CSV. Please check.")
+            raise Exception("Empty CSV. Please check before moving forward.")
         if('case_id' not in df.keys()):
-            raise Exception("'case_id' column not included in the CSV. Please check.")
+            raise Exception("'case_id' column not included in the CSV. Please check before moving forward.")
+        selected_columns = ['case_id']
+        if 'img_path_AP' in df.columns:
+            selected_columns.append('img_path_AP')
+        if 'img_path_LAT' in df.columns:
+            selected_columns.append('img_path_LAT')
         if('img_path_AP' in df.keys() and 'img_path_LAT' in df.keys()):
             df = df[['case_id','img_path_AP','img_path_LAT']]
             AP_OK, LAT_OK = 2*(True,)
@@ -579,25 +600,56 @@ def check_and_adapt_csv(csv_path,file_format):
         views.append('AP')
     if(LAT_OK):
         views.append('LAT')
+   
+    def get_full_path(img_path):
+     if pd.notna(img_path):  # Evita errores con valores NaN
+        if not os.path.isabs(img_path):  
+            return os.path.join(img_path,)  
+     return img_path
+
+    # Apply the function to the path columns
+    df['img_path_AP'] = df['img_path_AP'].apply(lambda x: get_full_path(x) if pd.notna(x) else np.nan)
+    df['img_path_LAT'] = df['img_path_LAT'].apply(lambda x: get_full_path(x) if pd.notna(x) else np.nan)
+
     # If everything is OK, proceed with more checks.
     for index,row in df.iterrows():
         for view in views:
             f = row[f"img_path_{view}"]
+            if pd.notna(f):  # Avoid errors with NaN
+               f = get_full_path(f)  # Ensure full path
             if (str(f).endswith(("0", "None", "none", "n/a", "N/a", "nan", "-1")) or str(f)==""):
                 continue
             if os.path.isdir(os.path.dirname(f)):
-                assert os.path.isfile(f), f"File {f} not found! Please check."
+                assert os.path.isfile(f), f"File {f} not found! Please check before moving forward."
+                
             else:
                 raise Exception(f"Folder {os.path.dirname(f)} does not exist. Please check paths")
             # Create another column with fname_without_ext per view. Check format consistency and file existance.
-            if(file_format in ['.jpg','.png']):
+            if file_format in ['.jpg', '.png']:
                 ext = os.path.splitext(f)[-1]
-                assert ext==file_format, f"File formats not matching. Please verify all files have the same file extension indicated in the command. \n File {f} not matching file extension {file_format}."
-                df.loc[index,f"fname_{view}_without_ext"] = os.path.splitext(os.path.basename(f))[0]
+                # Create the column if it does not exist
+                if f"fname_{view}_without_ext" not in df.columns:
+                    df[f"fname_{view}_without_ext"] = ""  # Inicializa con strings vacíos
+                # Asegurar que la columna es de tipo 'object' (string)
+                df[f"fname_{view}_without_ext"] = df[f"fname_{view}_without_ext"].astype(str)
+                # Verificar formato del archivo
+                assert ext == file_format, f"File formats not matching. File {f} not matching {file_format}."
+                # Asignar el nombre del archivo sin extensión
+                df.loc[index, f"fname_{view}_without_ext"] = os.path.splitext(os.path.basename(f))[0]
+
             elif(file_format in ['.nii.gz']):
                 ext = os.path.basename(f)[-7:]
-                assert ext==file_format, f"File formats not matching. Please verify all files have the same file extension indicated in the command. \n File {f} not matching file extension {file_format}."
-                df.loc[index,f"fname_{view}_without_ext"] = os.path.splitext(os.path.basename(f))[0][:-4]
+                if f"fname_{view}_without_ext" not in df.columns:
+                    df[f"fname_{view}_without_ext"] = ""  # Inicializa con strings vacíos
+                
+                # Asegurar que la columna es de tipo 'object' (string)
+                df[f"fname_{view}_without_ext"] = df[f"fname_{view}_without_ext"].astype(str)
+
+                # Verificar formato del archivo
+                assert ext == file_format, f"File formats not matching. File {f} not matching {file_format}."
+
+            
+                df.loc[index,f"fname_{view}_without_ext"] = (os.path.splitext(os.path.basename(f))[0][:-4])
 
     # If everything is OK, proceed with more checks.
     for index,row in df.iterrows():
@@ -611,8 +663,10 @@ def check_and_adapt_csv(csv_path,file_format):
                 img = read_nifti(f)
             
             if len(img.shape)!=2:
-                print(f"WARNING: Images should be in 2D! Please consider this as a warning, you could have problems in next steps if not controlled. Dimensions: {img.shape}")
-        
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # Convert to grayscale
+                #print(f"WARNING: Images should be in 2D! Please consider this as a warning, you could have problems in next steps if not controlled. Dimensions: {img.shape}")
+    
+    df.replace("", np.nan, inplace=True)
     return df, views
 
 def adapt_images_nnunet(folder_in,folder_out,file_format):
@@ -651,6 +705,54 @@ def check_existing_path(path):
     if(os.path.exists(path)):
         print(f"{path} already exists.")
         return True
+    
+def ensure_image_format(image, target_format='2d'):
+    """
+    Ensures the image has the specified format (2D grayscale or 3D RGB).
+    
+    Parameters:
+    - image: numpy array representing the image
+    - target_format: '2d' for grayscale or '3d' for RGB
+    
+    Returns:
+    - Image converted to the requested format
+    """
+    # Handle 4D images first
+    if image.ndim == 4:
+        print(f"⚠️ Warning: 4D image detected {image.shape}, adjusting...")
+        
+        if image.shape[0] == 1:  
+            image = np.squeeze(image, axis=0)  # Remove batch dimension
+        elif image.shape[-1] == 1:
+            image = np.squeeze(image, axis=-1)  # Remove redundant channel dimension
+        elif image.shape[-1] == image.shape[-2]:  # Special case
+            image = image[..., 0]
+            image = ensure_image_format(image, target_format)  # Recursively call with 3D image
+            
+        if image.ndim == 4:
+            raise ValueError(f"Could not reduce 4D image: {image.shape}")
+    
+    # Convert to target format
+    if target_format.lower() == '2d':
+        if image.ndim == 3 and image.shape[-1] in [3, 4]:  # RGB/RGBA to grayscale
+            return cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        elif image.ndim == 2:  # Already 2D
+            return image
+        else:
+            raise ValueError(f"Incompatible image format for 2D conversion: {image.shape}")
+    
+    elif target_format.lower() == '3d':
+        if image.ndim == 2:  # Grayscale to RGB
+            return cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        elif image.ndim == 3 and image.shape[-1] == 3:  # Already RGB
+            return image
+        elif image.ndim == 3 and image.shape[-1] == 4:  # RGBA to RGB
+            return image[..., :3]
+        else:
+            raise ValueError(f"Incompatible image format for 3D conversion: {image.shape}")
+    
+    else:
+        raise ValueError(f"Invalid target format: {target_format}. Must be '2d' or '3d'")
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
